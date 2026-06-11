@@ -231,7 +231,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           md:overflow-visible`}
       >
         {/* Brand */}
-        <div className={`h-16 flex items-center border-b border-slate-100 shrink-0 transition-all duration-300 
+        <div className={`flex items-end border-b border-slate-100 shrink-0 transition-all duration-300 pb-3.5 
+          pt-[calc(0.75rem+env(safe-area-inset-top,0px))] h-[calc(4rem+env(safe-area-inset-top,0px))]
           ${sidebarOpen ? 'px-4 gap-3 justify-between' : 'justify-center px-2'}`}>
           {sidebarOpen ? (
             <>
@@ -319,7 +320,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         )}
 
         {/* User footer */}
-        <div className={`border-t border-slate-100 ${sidebarOpen ? 'p-3' : 'p-2'}`}>
+        <div className={`border-t border-slate-100 ${sidebarOpen ? 'p-3' : 'p-2'} pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]`}>
           {sidebarOpen ? (
             <div className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-50 transition-colors">
               {user.profile?.avatarUrl ? (
@@ -349,7 +350,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
 
         {/* ─── Top Header ─── */}
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-6 shrink-0 z-30">
+        <header className="h-[calc(4rem+env(safe-area-inset-top,0px))] pt-[env(safe-area-inset-top,0px)] bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-6 shrink-0 z-30">
           <div className="flex items-center gap-3">
             {/* Hamburger — always visible */}
             <button
@@ -452,7 +453,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
         {/* ─── Page Content ─── */}
         <main className="flex-1 min-h-0 overflow-y-auto">
-          <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto w-full">
+          <div className="p-4 md:p-6 lg:p-8 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] max-w-7xl mx-auto w-full">
             {children}
           </div>
         </main>
@@ -460,7 +461,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
       {/* ─── Floating Global Chatbot Bubble & Drawer ─── */}
       {!isAdmin && (
-        <div className="fixed bottom-6 right-6 z-40 flex flex-col items-end">
+        <div className="fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom,0px))] right-[calc(1.5rem+env(safe-area-inset-right,0px))] z-40 flex flex-col items-end">
           {chatOpen && (
             <div className="mb-4 w-96 max-w-[calc(100vw-2rem)] h-[460px] bg-white border border-slate-200 rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-scale-in">
               {/* Chat Header */}
