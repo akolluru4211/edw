@@ -20,6 +20,13 @@ export const sendEmail = async ({ to, subject, html }: SendEmailParams) => {
     console.log(`To: ${to}`)
     console.log(`Subject: ${subject}`)
     console.log(`Body (HTML length): ${html.length} characters`)
+    const links = html.match(/href="([^"]+)"/g)
+    if (links) {
+      console.log('Extracted Links:')
+      links.forEach(link => {
+        console.log(`  - ${link.replace('href="', '').replace('"', '')}`)
+      })
+    }
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
     return { id: 'mock-email-id-' + Math.random().toString(36).substring(2, 9) }
   }

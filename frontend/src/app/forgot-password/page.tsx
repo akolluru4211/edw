@@ -2,23 +2,18 @@
 
 import React, { useState } from 'react';
 import { api } from '@/lib/api';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Sparkles, Mail, Lock, ShieldAlert, CheckCircle, ArrowLeft, ArrowRight, ShieldCheck } from 'lucide-react';
+import { Sparkles, Mail, ShieldAlert, CheckCircle, ArrowLeft, ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export default function ForgotPassword() {
-  const router = useRouter();
   const [email, setEmail] = useState('');
-  const [otpSent, setOtpSent] = useState(false);
-  const [code, setCode] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [linkSent, setLinkSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const handleSendCode = async (e: React.FormEvent) => {
+  const handleSendLink = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setSuccess(null);
@@ -31,45 +26,10 @@ export default function ForgotPassword() {
     setLoading(true);
     try {
       const response = await api.post('/auth/forgot-password', { email });
-      setSuccess(response.data.message || 'Verification code sent!');
-      setOtpSent(true);
+      setSuccess(response.data.message || 'Password reset link sent!');
+      setLinkSent(true);
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to send verification code. Please check your email.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleResetPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setSuccess(null);
-
-    if (!code || !newPassword || !confirmPassword) {
-      setError('Please fill in all verification fields.');
-      return;
-    }
-
-    if (newPassword !== confirmPassword) {
-      setError('Passwords do not match.');
-      return;
-    }
-
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&_#^-])[A-Za-z\d@$!%*?&_#^-]{8,}$/;
-    if (!passwordRegex.test(newPassword)) {
-      setError('Password must be at least 8 characters long, and contain at least one uppercase letter, one lowercase letter, one number, and one special character.');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const response = await api.post('/auth/reset-password', { email, code, newPassword });
-      setSuccess(response.data.message || 'Password reset successfully!');
-      setTimeout(() => {
-        router.push('/login');
-      }, 3000);
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Password reset failed. Please verify the code.');
+      setError(err.response?.data?.error || 'Failed to send recovery link. Please verify your email.');
     } finally {
       setLoading(false);
     }
@@ -100,7 +60,7 @@ export default function ForgotPassword() {
             Recover Workspace Access
           </h1>
           <p className="text-sky-100/90 text-sm leading-relaxed">
-            Enter your university email address. We will send a secure 6-digit verification code to confirm ownership before updating your password.
+            Enter your university email address. We will send a secure password recovery link to confirm ownership before updating your credentials.
           </p>
         </div>
 
@@ -146,8 +106,8 @@ export default function ForgotPassword() {
             </div>
           )}
 
-          {!otpSent ? (
-            <form onSubmit={handleSendCode} className="space-y-5">
+          {!linkSent ? (
+            <form onSubmit={handleSendLink} className="space-y-5">
               <div>
                 <label className="block text-slate-600 font-semibold text-xs mb-2">Email Address</label>
                 <div className="relative">
@@ -168,80 +128,36 @@ export default function ForgotPassword() {
                 disabled={loading}
                 className="w-full flex items-center justify-center gap-2 bg-sky-600 hover:bg-sky-700 disabled:bg-sky-400 text-white font-bold text-xs py-3.5 rounded-2xl shadow-md shadow-sky-100 hover:shadow-lg transition-all duration-200 mt-6 cursor-pointer"
               >
-                <span>{loading ? 'Sending verification code...' : 'Send Verification Code'}</span>
+                <span>{loading ? 'Sending recovery link...' : 'Send Recovery Link'}</span>
                 {!loading && <ArrowRight className="h-4 w-4" />}
               </button>
             </form>
           ) : (
-            <form onSubmit={handleResetPassword} className="space-y-5">
-              <div>
-                <label className="block text-slate-600 font-semibold text-xs mb-2">Email Address</label>
-                <div className="relative opacity-60">
-                  <Mail className="absolute left-3.5 top-3.5 h-4.5 w-4.5 text-slate-400" />
-                  <input 
-                    type="email"
-                    disabled
-                    value={email}
-                    className="w-full bg-slate-100 text-xs text-slate-600 rounded-2xl pl-11 pr-4 py-3.5 border border-slate-200 outline-none"
-                  />
-                </div>
+            <div className="text-center py-6 space-y-4">
+              <div className="mx-auto w-16 h-16 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mb-2">
+                <CheckCircle className="h-8 w-8" />
               </div>
-
-              <div>
-                <label className="block text-slate-600 font-semibold text-xs mb-2">6-Digit Verification Code</label>
-                <div className="relative">
-                  <ShieldCheck className="absolute left-3.5 top-3.5 h-4.5 w-4.5 text-slate-400" />
-                  <input 
-                    type="text"
-                    required
-                    maxLength={6}
-                    placeholder="123456"
-                    value={code}
-                    onChange={(e) => setCode(e.target.value)}
-                    className="w-full bg-slate-50 hover:bg-slate-100 focus:bg-white text-xs text-slate-800 rounded-2xl pl-11 pr-4 py-3.5 border border-slate-200 focus:border-sky-300 focus:outline-none transition-all duration-200 tracking-widest font-bold"
-                  />
-                </div>
+              <h3 className="text-lg font-bold text-slate-800">Check Your Inbox</h3>
+              <p className="text-slate-500 text-xs leading-relaxed max-w-sm mx-auto">
+                We've sent a secure password reset link to <strong className="text-slate-700">{email}</strong>. 
+                Please click the link in the email to configure your new credentials.
+              </p>
+              <div className="pt-4 flex flex-col gap-3">
+                <Link 
+                  href="/login" 
+                  className="w-full flex items-center justify-center gap-2 bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs py-3.5 rounded-2xl shadow-md transition-all duration-200"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  <span>Back to Login</span>
+                </Link>
+                <button 
+                  onClick={() => setLinkSent(false)}
+                  className="text-xs font-semibold text-slate-500 hover:text-slate-700 transition-colors"
+                >
+                  Resend Link / Try Another Email
+                </button>
               </div>
-
-              <div>
-                <label className="block text-slate-600 font-semibold text-xs mb-2">New Password</label>
-                <div className="relative">
-                  <Lock className="absolute left-3.5 top-3.5 h-4.5 w-4.5 text-slate-400" />
-                  <input 
-                    type="password"
-                    required
-                    placeholder="••••••••••••"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    className="w-full bg-slate-50 hover:bg-slate-100 focus:bg-white text-xs text-slate-800 rounded-2xl pl-11 pr-4 py-3.5 border border-slate-200 focus:border-sky-300 focus:outline-none transition-all duration-200"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-slate-600 font-semibold text-xs mb-2">Confirm New Password</label>
-                <div className="relative">
-                  <Lock className="absolute left-3.5 top-3.5 h-4.5 w-4.5 text-slate-400" />
-                  <input 
-                    type="password"
-                    required
-                    placeholder="••••••••••••"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="w-full bg-slate-50 hover:bg-slate-100 focus:bg-white text-xs text-slate-800 rounded-2xl pl-11 pr-4 py-3.5 border border-slate-200 focus:border-sky-300 focus:outline-none transition-all duration-200"
-                  />
-                </div>
-              </div>
-
-              <button 
-                type="submit" 
-                disabled={loading || !!(success && success.includes('Redirecting'))}
-                className="w-full flex items-center justify-center gap-2 bg-sky-600 hover:bg-sky-700 disabled:bg-sky-400 text-white font-bold text-xs py-3.5 rounded-2xl shadow-md shadow-sky-100 hover:shadow-lg transition-all duration-200 mt-6 cursor-pointer"
-              >
-                <span>{loading ? 'Verifying & resetting...' : 'Reset Password'}</span>
-                {!loading && <ArrowRight className="h-4 w-4" />}
-              </button>
-            </form>
+            </div>
           )}
 
           <div className="text-center mt-8 pt-6 border-t border-slate-100">

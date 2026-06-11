@@ -2,6 +2,7 @@ import { Request, Response } from 'express'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import axios from 'axios'
+import crypto from 'crypto'
 import { prisma } from '../lib/db'
 import type { AuthenticatedRequest } from '../middlewares/auth'
 import { sendEmail, getEmailTemplate } from '../lib/email'
@@ -384,27 +385,33 @@ export const requestPasswordReset = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'User with this email does not exist' })
     }
 
-    // Generate 6-digit OTP code
-    const code = Math.floor(100000 + Math.random() * 900000).toString()
+    // Generate secure reset token
+    const token = crypto.randomBytes(16).toString('hex')
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000) // 15 minutes validity
 
     await prisma.passwordResetOTP.upsert({
       where: { email },
-      update: { code, expiresAt },
-      create: { email, code, expiresAt }
+      update: { code: token, expiresAt },
+      create: { email, code: token, expiresAt }
     })
 
-    // Send OTP email
+    // Construct secure reset link matching request origin
+    const origin = req.headers.referer ? new URL(req.headers.referer).origin : 'http://localhost:3001'
+    const resetLink = `${origin}/reset-password?email=${encodeURIComponent(email)}&code=${token}`
+
+    // Send reset link email
     const resetHtml = getEmailTemplate(
-      'Password Reset Verification Code',
+      'Reset Your Password',
       `
         <p>Dear ${user.fullName},</p>
         <p>You requested to reset your password for your <strong>Edworld Co.</strong> workspace.</p>
-        <p>Please enter the following 6-digit verification code to complete your password recovery:</p>
-        <div style="background-color: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 12px; padding: 20px; text-align: center; font-size: 28px; font-weight: 900; letter-spacing: 6px; margin: 24px 0; color: #0284c7; font-family: monospace;">
-          ${code}
+        <p>Please click the button below to recover your account and choose a new password:</p>
+        <div style="text-align: center; margin: 32px 0;">
+          <a href="${resetLink}" style="background-color: #0284c7; color: white; padding: 14px 28px; text-decoration: none; border-radius: 12px; font-weight: bold; display: inline-block; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">Reset Password</a>
         </div>
-        <p>This code is valid for 15 minutes. If you did not make this request, you can safely ignore this email.</p>
+        <p>If the button above does not work, you can copy and paste the following link into your browser:</p>
+        <p style="word-break: break-all; color: #64748b; font-size: 13px; font-family: monospace; background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; border-radius: 8px;">${resetLink}</p>
+        <p>This link is valid for 15 minutes. If you did not make this request, you can safely ignore this email.</p>
         <br>
         <p>Best regards,<br>The Edworld Co. Team</p>
       `
@@ -412,11 +419,11 @@ export const requestPasswordReset = async (req: Request, res: Response) => {
 
     await sendEmail({
       to: email,
-      subject: 'Edworld Co. - Password Reset Verification Code',
+      subject: 'Edworld Co. - Reset Your Password',
       html: resetHtml
     })
 
-    res.json({ success: true, message: 'Verification code has been sent to your email.' })
+    res.json({ success: true, message: 'Password reset link has been sent to your email.' })
   } catch (error) {
     console.error('Request password reset error:', error)
     res.status(500).json({ error: 'Internal server error requesting password reset' })
@@ -445,7 +452,7 @@ export const verifyAndResetPassword = async (req: Request, res: Response) => {
 
     const record = await prisma.passwordResetOTP.findUnique({ where: { email } })
     if (!record || record.code !== code || record.expiresAt < new Date()) {
-      return res.status(400).json({ error: 'Invalid or expired verification code' })
+      return res.status(400).json({ error: 'Invalid or expired password reset link' })
     }
 
     const passwordHash = await bcrypt.hash(newPassword, 10)
