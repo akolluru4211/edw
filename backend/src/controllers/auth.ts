@@ -236,7 +236,7 @@ export const login = async (req: Request, res: Response) => {
         const namePart = email.split('@')[0].toUpperCase()
         const memberId = `EDW-${namePart.slice(0, 4)}-${Math.floor(1000 + Math.random() * 9000)}`
         
-        user = await prisma.$transaction(async (tx) => {
+        const recreatedUser = await prisma.$transaction(async (tx) => {
           const u = await tx.user.create({
             data: {
               id: supabaseUserId,
@@ -247,7 +247,7 @@ export const login = async (req: Request, res: Response) => {
               memberId
             }
           })
-          await tx.profile.create({
+          const p = await tx.profile.create({
             data: {
               userId: u.id,
               collegeName: 'Gitam University',
@@ -260,8 +260,9 @@ export const login = async (req: Request, res: Response) => {
               readinessScore: 20
             }
           })
-          return u
+          return { ...u, profile: p }
         })
+        user = recreatedUser
         console.log(`Dynamically recreated missing local record for Supabase user: ${email}`)
       } else {
         return res.status(401).json({ error: 'Invalid email or password' })
@@ -273,10 +274,12 @@ export const login = async (req: Request, res: Response) => {
         // Let's update their password locally to stay in sync!
         if (supabaseAuthSuccess) {
           const newPasswordHash = await bcrypt.hash(password, 10)
-          await prisma.user.update({
+          const updatedUser = await prisma.user.update({
             where: { id: user.id },
-            data: { passwordHash: newPasswordHash }
+            data: { passwordHash: newPasswordHash },
+            include: { profile: true }
           })
+          user = updatedUser
           console.log(`Updated local password hash to match Supabase Auth password reset for ${email}`)
         } else {
           // Log login failure
@@ -310,6 +313,10 @@ export const login = async (req: Request, res: Response) => {
           console.error(`Auto-registration in Supabase Auth failed for ${email}:`, signupErr.response?.data || signupErr.message)
         }
       }
+    }
+
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid email or password' })
     }
 
     // Check if the user has already received a daily login reward today
