@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: edworld-backend
+    restart: always
+    ports:
+      - "5000:5000"
+    volumes:
+      - backend-db:/app/prisma
+      - backend-uploads:/app/uploads
+    environment:
+      - PORT=5000
+      - JWT_SECRET=development_secret_key_12345
+      - RESEND_API_KEY=
+      - DATABASE_URL=${DATABASE_URL}
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_API_URL=http://localhost:5000/api
+    container_name: edworld-frontend
+    restart: always
+    ports:
+      - "3001:3001"
+    depends_on:
+      - backend
+
+volumes:
+  backend-db:
+  backend-uploads:
