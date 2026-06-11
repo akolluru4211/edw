@@ -69,9 +69,10 @@ export const register = async (req: Request, res: Response) => {
     } catch (err: any) {
       console.error('Failed to register user in Supabase Auth:', err.response?.data || err.message)
       const errorMsg = err.response?.data?.msg || err.response?.data?.error_description || err.message
-      if (!errorMsg.toLowerCase().includes('already') && !errorMsg.toLowerCase().includes('exists')) {
-        return res.status(400).json({ error: `Supabase Auth signup failed: ${errorMsg}` })
+      if (errorMsg.toLowerCase().includes('already') || errorMsg.toLowerCase().includes('exists')) {
+        return res.status(400).json({ error: 'An account with this email is already registered in our authentication system. Please sign in instead.' })
       }
+      return res.status(400).json({ error: `Supabase Auth signup failed: ${errorMsg}` })
     }
 
     // All signups default to STUDENT
@@ -199,30 +200,19 @@ export const login = async (req: Request, res: Response) => {
   }
 
   try {
-    const user = await prisma.user.findUnique({
+    let user = await prisma.user.findUnique({
       where: { email },
       include: { profile: true }
     })
 
-    if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
-      // Log login failure
-      await prisma.dataLog.create({
-        data: {
-          type: 'LOGIN_FAILURE',
-          email,
-          ipAddress: req.ip || null,
-          details: !user ? 'User does not exist' : 'Incorrect password'
-        }
-      }).catch(err => console.error('Failed to write login failure log:', err))
-
-      return res.status(401).json({ error: 'Invalid email or password' })
-    }
-
-    // Try to login/sync user in Supabase Auth so they appear in Supabase Authentication Dashboard
     const supabaseUrl = 'https://zfmprakiunbqsisqsiet.supabase.co'
     const supabaseKey = 'sb_publishable_7AxFqBP4O2Otz6y1jFcn4A_6WOrXTBH'
+    let supabaseAuthSuccess = false
+    let supabaseUserId: string | null = null
+
+    // Try to login/sync user in Supabase Auth first
     try {
-      await axios.post(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
+      const sbRes = await axios.post(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
         email,
         password
       }, {
@@ -231,23 +221,94 @@ export const login = async (req: Request, res: Response) => {
           'Content-Type': 'application/json'
         }
       })
+      supabaseAuthSuccess = true
+      supabaseUserId = sbRes.data?.user?.id || sbRes.data?.id
       console.log(`Supabase Auth login synced successfully for ${email}`)
     } catch (err: any) {
       console.error(`Supabase Auth sync login failed for ${email}:`, err.response?.data || err.message)
-      // If user is not in Supabase Auth, let's auto-register them
-      try {
-        await axios.post(`${supabaseUrl}/auth/v1/signup`, {
-          email,
-          password
-        }, {
-          headers: {
-            'apikey': supabaseKey,
-            'Content-Type': 'application/json'
-          }
+    }
+
+    if (!user) {
+      if (supabaseAuthSuccess && supabaseUserId) {
+        // User exists in Supabase Auth but is missing from local database (e.g. fresh environment).
+        // Let's dynamically recreate the local user record to restore alignment!
+        const passwordHash = await bcrypt.hash(password, 10)
+        const namePart = email.split('@')[0].toUpperCase()
+        const memberId = `EDW-${namePart.slice(0, 4)}-${Math.floor(1000 + Math.random() * 9000)}`
+        
+        user = await prisma.$transaction(async (tx) => {
+          const u = await tx.user.create({
+            data: {
+              id: supabaseUserId,
+              email,
+              passwordHash,
+              fullName: namePart,
+              role: 'STUDENT',
+              memberId
+            }
+          })
+          await tx.profile.create({
+            data: {
+              userId: u.id,
+              collegeName: 'Gitam University',
+              degree: 'B.Tech',
+              branch: 'CSE',
+              graduationYear: 2026,
+              interests: '[]',
+              goals: '[]',
+              portfolioUrl: namePart.toLowerCase() + '-' + Math.floor(Math.random() * 1000),
+              readinessScore: 20
+            }
+          })
+          return u
         })
-        console.log(`Auto-registered ${email} in Supabase Auth on login.`)
-      } catch (signupErr: any) {
-        console.error(`Auto-registration in Supabase Auth failed for ${email}:`, signupErr.response?.data || signupErr.message)
+        console.log(`Dynamically recreated missing local record for Supabase user: ${email}`)
+      } else {
+        return res.status(401).json({ error: 'Invalid email or password' })
+      }
+    } else {
+      // Verify local password
+      if (!(await bcrypt.compare(password, user.passwordHash))) {
+        // If they authenticated successfully on Supabase, they must have updated their password via recovery!
+        // Let's update their password locally to stay in sync!
+        if (supabaseAuthSuccess) {
+          const newPasswordHash = await bcrypt.hash(password, 10)
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { passwordHash: newPasswordHash }
+          })
+          console.log(`Updated local password hash to match Supabase Auth password reset for ${email}`)
+        } else {
+          // Log login failure
+          await prisma.dataLog.create({
+            data: {
+              type: 'LOGIN_FAILURE',
+              email,
+              ipAddress: req.ip || null,
+              details: 'Incorrect password'
+            }
+          }).catch(err => console.error('Failed to write login failure log:', err))
+
+          return res.status(401).json({ error: 'Invalid email or password' })
+        }
+      }
+
+      // If user exists locally but was not in Supabase Auth, let's auto-register them
+      if (!supabaseAuthSuccess) {
+        try {
+          await axios.post(`${supabaseUrl}/auth/v1/signup`, {
+            email,
+            password
+          }, {
+            headers: {
+              'apikey': supabaseKey,
+              'Content-Type': 'application/json'
+            }
+          })
+          console.log(`Auto-registered ${email} in Supabase Auth on login.`)
+        } catch (signupErr: any) {
+          console.error(`Auto-registration in Supabase Auth failed for ${email}:`, signupErr.response?.data || signupErr.message)
+        }
       }
     }
 
