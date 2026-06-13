@@ -44,7 +44,12 @@ export default function Login() {
     try {
       await loginWithOAuth(provider);
     } catch (err: any) {
-      setError(err.message || `${provider} login failed.`);
+      const msg = err.message || '';
+      if (msg.includes('auth/account-exists-with-different-credential')) {
+        setError('An account already exists with this email but was created using a different login method (e.g. Email/Password). Please sign in using your original method.');
+      } else {
+        setError(msg || `${provider} login failed.`);
+      }
     }
   };
 
