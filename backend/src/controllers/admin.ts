@@ -210,7 +210,7 @@ export const getAdminActivityLogs = async (req: AuthenticatedRequest, res: Respo
 // Clear all activity logs
 export const clearAdminActivityLogs = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    await prisma.dataLog.deleteMany()
+    await prisma.dataLog.deleteMany({})
     res.json({ success: true })
   } catch (error) {
     console.error('Clear logs error:', error)
