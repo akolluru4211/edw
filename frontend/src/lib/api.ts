@@ -1,6 +1,14 @@
 import axios from 'axios';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+const getApiUrl = () => {
+  if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
+  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
+    return '/_/backend/api';
+  }
+  return 'http://localhost:5000/api';
+};
+
+const API_URL = getApiUrl();
 
 export const BACKEND_URL = API_URL.endsWith('/api') ? API_URL.slice(0, -4) : API_URL;
 
