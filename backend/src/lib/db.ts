@@ -11,7 +11,21 @@ import axios from 'axios';
 const serviceAccountPath = path.join(process.cwd(), 'service-account.json');
 const firebaseToolsConfigPath = path.join(os.homedir(), '.config', 'configstore', 'firebase-tools.json');
 
-if (fs.existsSync(serviceAccountPath)) {
+if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+  console.log('Initializing Firebase Admin SDK using FIREBASE_SERVICE_ACCOUNT environment variable...');
+  try {
+    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+    initializeApp({
+      credential: cert(serviceAccount),
+      projectId: serviceAccount.project_id || 'edworld-career-os-2026'
+    });
+  } catch (err: any) {
+    console.error('Failed to parse FIREBASE_SERVICE_ACCOUNT environment variable:', err.message);
+    initializeApp({
+      projectId: 'edworld-career-os-2026'
+    });
+  }
+} else if (fs.existsSync(serviceAccountPath)) {
   console.log('Initializing Firebase Admin SDK using service-account.json key...');
   const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
   initializeApp({
