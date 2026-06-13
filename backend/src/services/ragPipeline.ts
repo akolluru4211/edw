@@ -1,4 +1,4 @@
-import { prisma } from '../lib/db';
+import { prisma, firebaseAuth } from '../lib/db';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import axios from 'axios';
@@ -98,38 +98,63 @@ export const seedRealUsers = async () => {
     ];
 
     for (const mu of mockUsers) {
-      const existing = await prisma.user.findUnique({ where: { email: mu.email } });
       const rawPassword = mu.password || 'Pass1234!';
       const passwordHash = bcrypt.hashSync(rawPassword, 10);
 
-      // Register/sync user in Supabase Auth first so they appear in dashboard
-      const supabaseUrl = 'https://zfmprakiunbqsisqsiet.supabase.co'
-      const supabaseKey = 'sb_publishable_7AxFqBP4O2Otz6y1jFcn4A_6WOrXTBH'
-      let supabaseUserId: string | null = null
+      // Register/sync user in Firebase Auth first so they appear in dashboard
+      let firebaseUserId: string | null = null;
       try {
-        const sbRes = await axios.post(`${supabaseUrl}/auth/v1/signup`, {
+        const fbUser = await firebaseAuth.createUser({
           email: mu.email,
-          password: rawPassword
-        }, {
-          headers: {
-            'apikey': supabaseKey,
-            'Content-Type': 'application/json'
-          }
-        })
-        supabaseUserId = sbRes.data?.id || sbRes.data?.user?.id
-        console.log(`Seeded user ${mu.email} registered in Supabase Auth with ID: ${supabaseUserId}`)
+          password: rawPassword,
+          displayName: mu.fullName
+        });
+        firebaseUserId = fbUser.uid;
+        console.log(`Seeded user ${mu.email} registered in Firebase Auth with ID: ${firebaseUserId}`);
       } catch (err: any) {
-        const errorMsg = err.response?.data?.msg || err.response?.data?.error_description || err.message
-        console.log(`Seeded user ${mu.email} Supabase Auth check: ${errorMsg}`)
+        if (err.code === 'auth/email-already-exists') {
+          try {
+            const fbUser = await firebaseAuth.getUserByEmail(mu.email);
+            firebaseUserId = fbUser.uid;
+            console.log(`Seeded user ${mu.email} already registered in Firebase Auth with ID: ${firebaseUserId}`);
+          } catch (fetchErr: any) {
+            console.error(`Failed to fetch existing Firebase Auth user ${mu.email}:`, fetchErr.message);
+          }
+        } else {
+          console.error(`Failed to register seeded user ${mu.email} in Firebase Auth:`, err.message);
+        }
       }
 
-      // If user exists, delete them first to sync ID with Supabase Auth and recreate fresh profile
-      if (existing) {
+      if (!firebaseUserId) {
+        console.error(`Could not resolve Firebase UID for ${mu.email}, skipping.`);
+        continue;
+      }
+
+      // Check if local user record already exists with the CORRECT Firebase UID
+      const existingById = await prisma.user.findUnique({ where: { id: firebaseUserId } });
+      if (existingById) {
+        // User already exists with correct ID — check if profile also exists
+        const existingProfile = await prisma.profile.findUnique({ where: { userId: firebaseUserId } });
+        if (existingProfile) {
+          console.log(`Seeded user ${mu.email} already fully provisioned, skipping recreation.`);
+          continue;
+        }
+        // Profile missing — just create it
+        await prisma.profile.create({ data: { userId: firebaseUserId, ...mu.profile } });
+        console.log(`Seeded missing profile for existing user: ${mu.fullName}`);
+        continue;
+      }
+
+      // User exists with a different/old ID — clean up stale records
+      const existingByEmail = await prisma.user.findUnique({ where: { email: mu.email } });
+      if (existingByEmail) {
         try {
-          await prisma.user.delete({ where: { id: existing.id } });
-          console.log(`Deleted existing local user record for E2EE / ID alignment: ${mu.email}`);
+          // Purge ALL orphaned profiles for this old userId first
+          await prisma.profile.deleteMany({ where: { userId: existingByEmail.id } });
+          await prisma.user.delete({ where: { id: existingByEmail.id } });
+          console.log(`Deleted stale local user record for E2EE / ID alignment: ${mu.email}`);
         } catch (delErr) {
-          console.error(`Failed to delete local user ${mu.email}:`, delErr);
+          console.error(`Failed to delete stale user ${mu.email}:`, delErr);
         }
       }
 
@@ -145,7 +170,7 @@ export const seedRealUsers = async () => {
 
       const user = await prisma.user.create({
         data: {
-          id: supabaseUserId || undefined,
+          id: firebaseUserId,
           email: mu.email,
           fullName: mu.fullName,
           role: mu.role,

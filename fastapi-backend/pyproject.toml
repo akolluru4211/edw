@@ -1,0 +1,17 @@
+[project]
+name = "fastapi-backend"
+version = "0.1.0"
+description = "FastAPI backend for Edworld Co. AI Career Platform"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.110.0",
+    "uvicorn>=0.28.0",
+    "sqlmodel>=0.0.16",
+    "psycopg>=3.1.18",
+    "bcrypt>=4.1.2",
+    "pyjwt>=2.8.0",
+    "httpx>=0.27.0",
+    "python-multipart>=0.0.9",
+    "python-dotenv>=1.0.1",
+]

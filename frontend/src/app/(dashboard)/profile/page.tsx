@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { api } from '@/lib/api';
+import { api, BACKEND_URL } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import {
   UserCircle, FileText, Briefcase, GraduationCap,
@@ -203,7 +203,7 @@ export default function ProfileHub() {
             >
               {user?.profile?.avatarUrl ? (
                 <img 
-                  src={`http://localhost:5000${user.profile.avatarUrl}`} 
+                  src={`${BACKEND_URL}${user.profile.avatarUrl}`} 
                   alt="Avatar" 
                   className="h-full w-full object-cover" 
                   crossOrigin="anonymous"
@@ -447,7 +447,7 @@ export default function ProfileHub() {
                   {/* Photo area */}
                   <div className="h-16 w-16 rounded-xl border border-white/20 bg-slate-800/80 overflow-hidden flex items-center justify-center shrink-0 shadow-lg">
                     {user?.profile?.avatarUrl ? (
-                      <img src={`http://localhost:5000${user.profile.avatarUrl}`} alt="Avatar" className="h-full w-full object-cover" crossOrigin="anonymous" />
+                      <img src={`${BACKEND_URL}${user.profile.avatarUrl}`} alt="Avatar" className="h-full w-full object-cover" crossOrigin="anonymous" />
                     ) : (
                       <span className="font-black text-xl text-sky-400">{initials}</span>
                     )}
@@ -491,14 +491,23 @@ export default function ProfileHub() {
                   </div>
                 </div>
               </div>
-              <button 
-                onClick={downloadIDCard}
-                disabled={downloadingCard}
-                className="w-full mt-4 flex items-center justify-center gap-2 py-2.5 bg-sky-600 hover:bg-sky-700 disabled:bg-sky-400 text-white text-xs font-bold rounded-xl transition-all shadow-md shadow-sky-100 cursor-pointer"
-              >
-                <Download className="h-4 w-4" /> 
-                {downloadingCard ? 'Downloading ID Card...' : 'Download ID Card (PNG)'}
-              </button>
+              <div className="flex gap-2 mt-4">
+                <button 
+                  onClick={downloadIDCard}
+                  disabled={downloadingCard}
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-sky-600 hover:bg-sky-700 disabled:bg-sky-400 text-white text-xs font-bold rounded-xl transition-all shadow-md shadow-sky-100 cursor-pointer"
+                >
+                  <Download className="h-4 w-4" /> 
+                  {downloadingCard ? 'Downloading...' : 'Download PNG'}
+                </button>
+                <button 
+                  onClick={() => window.print()}
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all border border-slate-200 cursor-pointer"
+                >
+                  <span className="text-sm">🖨️</span> Print Card
+                </button>
+              </div>
+
             </div>
 
             {/* Profile Stats */}

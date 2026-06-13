@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { api } from '@/lib/api';
+import { api, BACKEND_URL } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { 
   FileText, 
@@ -254,7 +254,7 @@ export default function ResumeOptimizer() {
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <a 
-                        href={`http://localhost:5000${r.fileUrl}`}
+                        href={`${BACKEND_URL}${r.fileUrl}`}
                         target="_blank" 
                         rel="noreferrer" 
                         className="inline-flex items-center gap-1.5 text-xs font-semibold text-sky-600 hover:text-sky-700 px-3 py-2 bg-sky-50 hover:bg-sky-100 rounded-xl transition-colors"

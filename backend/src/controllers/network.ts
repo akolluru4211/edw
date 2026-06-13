@@ -2,6 +2,7 @@ import { Response } from 'express'
 import { prisma } from '../lib/db'
 import type { AuthenticatedRequest } from '../middlewares/auth'
 import { encryptHybridNode } from '../services/ragPipeline'
+import { sendPushToUser } from './notifications'
 
 // Suggested connections matching interests/major
 export const getSuggestions = async (req: AuthenticatedRequest, res: Response) => {
@@ -31,51 +32,65 @@ export const getSuggestions = async (req: AuthenticatedRequest, res: Response) =
     })
 
     // Rank profiles and map actual connection status
-    const suggestions = allProfiles.map(p => {
-      const pInterests: string[] = JSON.parse(p.interests)
-      const matches = pInterests.filter(i => myInterests.includes(i))
-      let score = matches.length * 15
+    // Filter out orphaned profiles (where the user doc no longer exists in Firestore)
+    const validProfiles = allProfiles.filter(p => p.user != null)
 
-      if (p.branch === myMajor) {
-        score += 30
-      }
+    const seenUserIds = new Set<string>()
+    const suggestions = validProfiles
+      .filter(p => {
+        // Deduplicate: keep only first occurrence of each userId to prevent React duplicate key errors
+        // Stale profiles from previous seeder runs can leave duplicate userId entries in Firestore
+        if (seenUserIds.has(p.userId)) return false
+        seenUserIds.add(p.userId)
+        return true
+      })
+      .map(p => {
+        let pInterests: string[] = []
+        try { pInterests = JSON.parse(p.interests) } catch { pInterests = [] }
+        const matches = pInterests.filter((i: string) => myInterests.includes(i))
+        let score = matches.length * 15
 
-      // Check connection status
-      const conn = myConnections.find(c => 
-        (c.senderId === req.user!.id && c.receiverId === p.userId) ||
-        (c.senderId === p.userId && c.receiverId === req.user!.id)
-      )
+        if (p.branch === myMajor) {
+          score += 30
+        }
 
-      let status: 'CONNECT' | 'PENDING' | 'RECEIVED' | 'CONNECTED' = 'CONNECT'
-      if (conn) {
-        if (conn.status === 'CONNECTED') {
-          status = 'CONNECTED'
-        } else if (conn.status === 'PENDING') {
-          if (conn.senderId === req.user!.id) {
-            status = 'PENDING'
-          } else {
-            status = 'RECEIVED'
+        // Check connection status
+        const conn = myConnections.find(c => 
+          (c.senderId === req.user!.id && c.receiverId === p.userId) ||
+          (c.senderId === p.userId && c.receiverId === req.user!.id)
+        )
+
+        let status: 'CONNECT' | 'PENDING' | 'RECEIVED' | 'CONNECTED' = 'CONNECT'
+        if (conn) {
+          if (conn.status === 'CONNECTED') {
+            status = 'CONNECTED'
+          } else if (conn.status === 'PENDING') {
+            if (conn.senderId === req.user!.id) {
+              status = 'PENDING'
+            } else {
+              status = 'RECEIVED'
+            }
           }
         }
-      }
 
-      return {
-        id: p.userId,
-        fullName: p.user.fullName,
-        role: p.user.role,
-        memberId: p.user.memberId,
-        publicKey: p.user.publicKey,
-        avatarUrl: p.avatarUrl,
-        collegeName: p.collegeName,
-        degree: p.degree,
-        branch: p.branch,
-        graduationYear: p.graduationYear,
-        status,
-        score: Math.min(95, 40 + score), // Ensure baseline suggested match %
-        latitude: p.latitude,
-        longitude: p.longitude
-      }
-    }).sort((a, b) => b.score - a.score)
+        return {
+          id: p.userId,
+          fullName: p.user.fullName,
+          role: p.user.role,
+          memberId: p.user.memberId,
+          publicKey: p.user.publicKey,
+          avatarUrl: p.avatarUrl,
+          collegeName: p.collegeName,
+          degree: p.degree,
+          branch: p.branch,
+          graduationYear: p.graduationYear,
+          status,
+          score: Math.min(95, 40 + score), // Ensure baseline suggested match %
+          latitude: p.latitude,
+          longitude: p.longitude
+        }
+      })
+      .sort((a, b) => b.score - a.score)
 
     res.json(suggestions)
   } catch (error) {
@@ -118,6 +133,17 @@ export const connectUser = async (req: AuthenticatedRequest, res: Response) => {
     // REMOVED: Mock auto-approve setTimeout loop.
     // Connections now remain strictly PENDING until approved by the recipient.
 
+    // 🔔 Push: notify the target user about the incoming request
+    const senderUser = await prisma.user.findUnique({ where: { id: req.user.id } })
+    if (senderUser) {
+      sendPushToUser(
+        targetId,
+        '👋 New Connection Request',
+        `${senderUser.fullName} wants to connect with you on Edworld Co.`,
+        { type: 'connection_request', senderId: req.user.id, url: '/network' }
+      ).catch(() => {})
+    }
+
     res.status(201).json(request)
   } catch (error) {
     res.status(500).json({ error: 'Internal server error sending connection request' })
@@ -146,6 +172,17 @@ export const acceptConnection = async (req: AuthenticatedRequest, res: Response)
       where: { id: conn.id },
       data: { status: 'CONNECTED' }
     })
+
+    // 🔔 Push: notify the original sender that their request was accepted
+    const accepterUser = await prisma.user.findUnique({ where: { id: req.user.id } })
+    if (accepterUser) {
+      sendPushToUser(
+        senderId,
+        '🎉 Connection Accepted!',
+        `${accepterUser.fullName} accepted your connection request. Start a conversation!`,
+        { type: 'connection_accepted', acceptedBy: req.user.id, url: '/network' }
+      ).catch(() => {})
+    }
 
     res.json(updated)
   } catch (error) {
@@ -198,6 +235,16 @@ export const sendMessage = async (req: AuthenticatedRequest, res: Response) => {
     // Simulate reply from seeded peer users using E2EE encryption if public keys are present
     const receiverUser = await prisma.user.findUnique({ where: { id: receiverId } })
     const senderUser = await prisma.user.findUnique({ where: { id: req.user.id } })
+
+    // 🔔 Push: notify the receiver about the new DM (fire-and-forget)
+    if (senderUser) {
+      sendPushToUser(
+        receiverId,
+        `💬 New message from ${senderUser.fullName}`,
+        text === '[Encrypted Message]' ? 'You have a new encrypted message.' : (text?.slice(0, 80) || 'New message'),
+        { type: 'direct_message', senderId: req.user.id, url: '/network' }
+      ).catch(() => {})
+    }
 
     const seededBots = ['sarah.j@stanford.edu', 'm.chen@stripe.com', 'emily.rod@google.com']
 

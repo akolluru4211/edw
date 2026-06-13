@@ -3,6 +3,8 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
+import { signInWithPopup } from 'firebase/auth';
+import { auth, googleProvider, githubProvider } from '@/lib/firebase';
 import {
   generateE2EKeys,
   deriveAesKey,
@@ -23,6 +25,8 @@ export interface User {
   keySalt?: string;
   keyIv?: string;
   edPoints?: number;
+  plan?: 'FREE' | 'PRO' | 'PREMIUM';
+  subscriptionExpiresAt?: string;
   profile?: {
     id: string;
     collegeName: string;
@@ -45,6 +49,7 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (email: string, password: any) => Promise<void>;
+  loginWithOAuth: (providerName: 'google' | 'github') => Promise<void>;
   registerUser: (formData: any) => Promise<void>;
   logout: () => void;
   refreshUser: () => Promise<void>;
@@ -81,12 +86,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           console.error('Failed to restore cached private key:', err);
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to restore session:', error);
-      localStorage.removeItem('edworld_token');
-      sessionStorage.removeItem('edworld_private_key');
-      setUser(null);
-      setDecryptedPrivateKey(null);
+      // Only clear credentials if we got an explicit 401 or 403 response status.
+      // Do not clear the token on network connection errors or server 5xx errors.
+      const isSessionExpired = error?.response && (error.response.status === 401 || error.response.status === 403);
+      if (isSessionExpired) {
+        localStorage.removeItem('edworld_token');
+        sessionStorage.removeItem('edworld_private_key');
+        setUser(null);
+        setDecryptedPrivateKey(null);
+      }
     } finally {
       setLoading(false);
     }
@@ -156,7 +166,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(loggedUser);
       router.push('/');
     } catch (error: any) {
-      throw new Error(error.response?.data?.error || 'Login failed');
+      throw new Error(error.response?.data?.error || error.message || 'Login failed');
     } finally {
       setLoading(false);
     }
@@ -202,7 +212,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(registeredUser);
       router.push('/');
     } catch (error: any) {
-      throw new Error(error.response?.data?.error || 'Registration failed');
+      throw new Error(error.response?.data?.error || error.message || 'Registration failed');
     } finally {
       setLoading(false);
     }
@@ -216,8 +226,71 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     router.push('/login');
   };
 
+  const loginWithOAuth = async (providerName: 'google' | 'github') => {
+    setLoading(true);
+    try {
+      const provider = providerName === 'google' ? googleProvider : githubProvider;
+      const result = await signInWithPopup(auth, provider);
+      const idToken = await result.user.getIdToken();
+      
+      const response = await api.post('/auth/firebase-login', { idToken });
+      const { token, user: loggedUser } = response.data;
+      localStorage.setItem('edworld_token', token);
+      
+      // E2EE Keys Setup for OAuth using user UID as passphrase
+      if (loggedUser.encryptedPrivateKey && loggedUser.keySalt && loggedUser.keyIv) {
+        const aesKey = await deriveAesKey(loggedUser.id, loggedUser.keySalt);
+        const privateKey = await decryptPrivateKey(
+          loggedUser.encryptedPrivateKey,
+          aesKey,
+          loggedUser.keyIv
+        );
+        const jwkStr = await exportKeyToJwk(privateKey);
+        sessionStorage.setItem('edworld_private_key', jwkStr);
+        setDecryptedPrivateKey(privateKey);
+      } else {
+        const keys = await generateE2EKeys();
+        const saltBuffer = window.crypto.getRandomValues(new Uint8Array(16));
+        let saltBinary = '';
+        for (let i = 0; i < saltBuffer.byteLength; i++) {
+          saltBinary += String.fromCharCode(saltBuffer[i]);
+        }
+        const saltBase64 = window.btoa(saltBinary);
+        
+        const aesKey = await deriveAesKey(loggedUser.id, saltBase64);
+        const encrypted = await encryptPrivateKey(keys.privateKeyBase64, aesKey);
+        
+        await api.post('/auth/save-keys', {
+          publicKey: keys.publicKeyBase64,
+          encryptedPrivateKey: encrypted.encryptedPrivateKeyBase64,
+          keySalt: saltBase64,
+          keyIv: encrypted.ivBase64
+        }, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        const jwkStr = await exportKeyToJwk(keys.privateKeyCrypto);
+        sessionStorage.setItem('edworld_private_key', jwkStr);
+        setDecryptedPrivateKey(keys.privateKeyCrypto);
+
+        loggedUser.publicKey = keys.publicKeyBase64;
+        loggedUser.encryptedPrivateKey = encrypted.encryptedPrivateKeyBase64;
+        loggedUser.keySalt = saltBase64;
+        loggedUser.keyIv = encrypted.ivBase64;
+      }
+
+      setUser(loggedUser);
+      router.push('/');
+    } catch (error: any) {
+      console.error(`${providerName} login failed:`, error);
+      throw new Error(error.response?.data?.error || error.message || 'OAuth login failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, registerUser, logout, refreshUser, decryptedPrivateKey }}>
+    <AuthContext.Provider value={{ user, loading, login, loginWithOAuth, registerUser, logout, refreshUser, decryptedPrivateKey }}>
       {children}
     </AuthContext.Provider>
   );

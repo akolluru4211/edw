@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, use, useRef } from 'react';
-import { api } from '@/lib/api';
+import { api, BACKEND_URL } from '@/lib/api';
 import { 
   GraduationCap, 
   Mail, 
@@ -425,7 +425,7 @@ export default function PublicPortfolio({ params }: PublicPortfolioProps) {
                 <div className="flex-1 flex gap-4 items-center mt-3 z-10 min-w-0">
                   <div className="h-16 w-16 rounded-xl border border-white/20 bg-slate-800/80 overflow-hidden flex items-center justify-center shrink-0 shadow-lg">
                     {profile.user?.profile?.avatarUrl ? (
-                      <img src={`http://localhost:5000${profile.user.profile.avatarUrl}`} alt="Avatar" className="h-full w-full object-cover" crossOrigin="anonymous" />
+                      <img src={`${BACKEND_URL}${profile.user.profile.avatarUrl}`} alt="Avatar" className="h-full w-full object-cover" crossOrigin="anonymous" />
                     ) : (
                       <span className="font-black text-xl text-sky-400">
                         {profile.user?.fullName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}

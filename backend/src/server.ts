@@ -10,6 +10,8 @@ import opportunityRoutes from './routes/opportunities'
 import networkRoutes from './routes/network'
 import communityRoutes from './routes/community'
 import adminRoutes from './routes/admin'
+import subscriptionRoutes from './routes/subscription'
+import notificationRoutes from './routes/notifications'
 import { prisma } from './lib/db'
 
 dotenv.config()
@@ -33,6 +35,8 @@ app.use('/api/opportunities', opportunityRoutes)
 app.use('/api/network', networkRoutes)
 app.use('/api/community', communityRoutes)
 app.use('/api/admin', adminRoutes)
+app.use('/api/subscription', subscriptionRoutes)
+app.use('/api/notifications', notificationRoutes)
 
 app.get('/health', (req, res) => {
   res.json({ status: 'healthy', timestamp: new Date() })

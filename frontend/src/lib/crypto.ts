@@ -132,7 +132,7 @@ export async function decryptPrivateKey(
       name: 'RSA-OAEP',
       hash: 'SHA-256',
     },
-    false,
+    true,
     ['decrypt']
   );
 }
@@ -178,7 +178,7 @@ export async function importKeyFromJwk(jwkString: string, type: 'public' | 'priv
       name: 'RSA-OAEP',
       hash: 'SHA-256',
     },
-    false,
+    true,
     type === 'public' ? ['encrypt'] : ['decrypt']
   );
 }

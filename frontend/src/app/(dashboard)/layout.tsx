@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { api } from '@/lib/api';
+import { useNotifications } from '@/context/NotificationContext';
+import { api, BACKEND_URL } from '@/lib/api';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { 
@@ -20,6 +21,7 @@ import {
   Menu,
   X, 
   Bell, 
+  BellDot,
   TrendingUp,
   FolderGit,
   ChevronRight,
@@ -45,6 +47,7 @@ const navGroups = [
       { name: 'Portfolio', href: '/portfolio', icon: FolderGit, desc: 'Edit your portfolio' },
       { name: 'ATS Resume', href: '/resume', icon: FileText, desc: 'Scan & optimize' },
       { name: 'Ed Points', href: '/points', icon: Coins, desc: 'Redeem points' },
+      { name: 'Pricing & Plans', href: '/pricing', icon: Sparkles, desc: 'Upgrade your workspace' },
     ]
   },
   {
@@ -59,12 +62,14 @@ const navGroups = [
       { name: 'Jobs & Internships', href: '/jobs', icon: Briefcase, desc: 'Apply to roles' },
       { name: 'Connections', href: '/network', icon: Users, desc: 'Grow your network' },
       { name: 'Community', href: '/community', icon: MessagesSquare, desc: 'Q&A and posts' },
+      { name: 'Notifications', href: '/notifications', icon: Bell, desc: 'Push alerts & history' },
     ]
   }
 ];
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const { user, loading, logout, refreshUser } = useAuth();
+  const { unreadCount, history, markRead } = useNotifications();
   const router = useRouter();
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -84,12 +89,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [chatLoading, setChatLoading] = useState(false);
   const [chatSessionId, setChatSessionId] = useState<string | null>(null);
 
-  const notifications = [
-    { id: '1', title: 'New Job Match', text: 'Full Stack Engineer matching your skills was posted.', read: false, time: '2h ago' },
-    { id: '2', title: 'Connection Request', text: 'Sarah Jenkins wants to connect with you.', read: false, time: '5h ago' },
-    { id: '3', title: 'ATS Score Updated', text: 'Your resume ATS score improved after reanalysis.', read: true, time: '1d ago' }
-  ];
-  const unreadCount = notifications.filter(n => !n.read).length;
 
   useEffect(() => {
     if (!loading) {
@@ -101,17 +100,19 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     }
   }, [user, loading, pathname, router]);
 
-  // Handle Splash Screen Timer
+  // Handle Splash Screen Timer (dismiss immediately when auth loading ends)
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setFadeSplash(true);
-      const removeTimer = setTimeout(() => {
-        setShowSplash(false);
-      }, 500);
-      return () => clearTimeout(removeTimer);
-    }, 1800);
-    return () => clearTimeout(timer);
-  }, []);
+    if (!loading) {
+      const timer = setTimeout(() => {
+        setFadeSplash(true);
+        const removeTimer = setTimeout(() => {
+          setShowSplash(false);
+        }, 400);
+        return () => clearTimeout(removeTimer);
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [loading]);
 
   // Fetch latest chat session if user is logged in
   useEffect(() => {
@@ -219,15 +220,15 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       {/* ─── Sidebar Backdrop (mobile) ─── */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-sm md:hidden"
+          className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-sm hidden md:block"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       {/* ─── Sidebar ─── */}
       <aside
-        className={`fixed md:static inset-y-0 left-0 z-50 flex flex-col bg-white border-r border-slate-200 transition-all duration-300 ease-in-out
-          ${sidebarOpen ? 'w-64 shadow-2xl' : 'w-0 md:w-16 overflow-hidden'}
+        className={`fixed md:static inset-y-0 left-0 z-50 hidden md:flex flex-col bg-white border-r border-slate-200 transition-all duration-300 ease-in-out
+          ${sidebarOpen ? 'w-64 shadow-2xl' : 'w-16 overflow-hidden'}
           md:overflow-visible`}
       >
         {/* Brand */}
@@ -324,14 +325,25 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           {sidebarOpen ? (
             <div className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-50 transition-colors">
               {user.profile?.avatarUrl ? (
-                <img src={`http://localhost:5000${user.profile.avatarUrl}`} alt="Avatar" className="h-8 w-8 rounded-full object-cover shrink-0" />
+                <img src={`${BACKEND_URL}${user.profile.avatarUrl}`} alt="Avatar" className="h-8 w-8 rounded-full object-cover shrink-0" />
               ) : (
                 <div className="h-8 w-8 rounded-full bg-gradient-to-br from-sky-500 to-blue-500 text-white font-bold text-xs flex items-center justify-center shrink-0">
                   {userInitials}
                 </div>
               )}
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-slate-800 truncate">{user.fullName}</p>
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <p className="text-sm font-semibold text-slate-800 truncate">{user.fullName}</p>
+                  {user.plan && user.plan !== 'FREE' && (
+                    <span className={`px-1.5 py-0.5 rounded text-[8px] font-black tracking-wider uppercase shrink-0 ${
+                      user.plan === 'PREMIUM'
+                        ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-white shadow-sm'
+                        : 'bg-gradient-to-r from-sky-500 to-blue-500 text-white shadow-sm'
+                    }`}>
+                      {user.plan}
+                    </span>
+                  )}
+                </div>
                 <p className="text-[10px] text-slate-400 capitalize">{user.role.toLowerCase()}</p>
               </div>
               <button onClick={logout} title="Sign Out" className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
@@ -352,10 +364,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         {/* ─── Top Header ─── */}
         <header className="h-[calc(4rem+env(safe-area-inset-top,0px))] pt-[env(safe-area-inset-top,0px)] bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-6 shrink-0 z-30">
           <div className="flex items-center gap-3">
-            {/* Hamburger — always visible */}
+            {/* Hamburger — hidden on mobile */}
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="flex items-center justify-center h-9 w-9 rounded-xl hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition-colors"
+              className="hidden md:flex items-center justify-center h-9 w-9 rounded-xl hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition-colors"
               aria-label="Toggle menu"
             >
               <Menu className="h-5 w-5" />
@@ -418,26 +430,46 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                       <span className="font-bold text-sm text-slate-800">Notifications</span>
                       {unreadCount > 0 && <span className="text-xs font-bold text-sky-600 bg-sky-50 px-2 py-0.5 rounded-full">{unreadCount} new</span>}
                     </div>
-                    <div className="max-h-72 overflow-y-auto">
-                      {notifications.map(n => (
-                        <div key={n.id} className={`px-4 py-3.5 border-b border-slate-50 last:border-0 hover:bg-slate-50 transition-colors cursor-pointer ${!n.read ? 'bg-sky-50/30' : ''}`}>
+                    <div className="max-h-72 overflow-y-auto divide-y divide-slate-50">
+                      {history.length === 0 ? (
+                        <div className="px-4 py-8 text-center">
+                          <Bell className="h-7 w-7 text-slate-200 mx-auto mb-2" />
+                          <p className="text-xs text-slate-400 font-medium">No notifications yet</p>
+                        </div>
+                      ) : history.slice(0, 5).map(n => (
+                        <div
+                          key={n.id}
+                          className={`px-4 py-3.5 hover:bg-slate-50 transition-colors cursor-pointer ${!n.read ? 'bg-sky-50/30' : ''}`}
+                          onClick={() => { markRead(n.id); setNotifOpen(false); }}
+                        >
                           <div className="flex items-start justify-between gap-2 mb-1">
-                            <p className="text-xs font-bold text-slate-800">{n.title}</p>
-                            <span className="text-[10px] text-slate-400 shrink-0">{n.time}</span>
+                            <p className={`text-xs text-slate-800 ${!n.read ? 'font-bold' : 'font-semibold'}`}>{n.title}</p>
+                            {!n.read && <div className="h-1.5 w-1.5 bg-sky-500 rounded-full shrink-0 mt-1" />}
                           </div>
-                          <p className="text-[11px] text-slate-500 leading-relaxed">{n.text}</p>
+                          <p className="text-[11px] text-slate-500 leading-relaxed line-clamp-2">{n.body}</p>
+                          <p className="text-[10px] text-slate-400 mt-1">{new Date(n.sentAt).toLocaleString()}</p>
                         </div>
                       ))}
                     </div>
+                    <div className="px-4 py-2.5 border-t border-slate-100 bg-slate-50/50">
+                      <Link
+                        href="/notifications"
+                        onClick={() => setNotifOpen(false)}
+                        className="block text-center text-xs font-bold text-sky-600 hover:text-sky-700 transition-colors"
+                      >
+                        View all notifications →
+                      </Link>
+                    </div>
                   </div>
                 )}
+
               </div>
             )}
 
             {/* Avatar */}
             <Link href={isAdmin ? "/admin" : "/profile"} className="flex items-center gap-2 pl-1 pr-3 py-1 border border-slate-200 hover:border-slate-300 rounded-full bg-white transition-colors">
               {user.profile?.avatarUrl ? (
-                <img src={`http://localhost:5000${user.profile.avatarUrl}`} alt="Avatar" className="h-7 w-7 rounded-full object-cover shrink-0" />
+                <img src={`${BACKEND_URL}${user.profile.avatarUrl}`} alt="Avatar" className="h-7 w-7 rounded-full object-cover shrink-0" />
               ) : (
                 <div className="h-7 w-7 rounded-full bg-gradient-to-br from-sky-500 to-blue-600 text-white font-bold text-xs flex items-center justify-center shrink-0">
                   {userInitials}
@@ -446,6 +478,15 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               <span className="text-xs font-semibold text-slate-700 hidden sm:block max-w-[90px] truncate">
                 {user.fullName.split(' ')[0]}
               </span>
+              {user.plan && user.plan !== 'FREE' && (
+                <span className={`hidden sm:inline px-1.5 py-0.5 rounded text-[8px] font-black tracking-wider uppercase shrink-0 ${
+                  user.plan === 'PREMIUM'
+                    ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-white'
+                    : 'bg-gradient-to-r from-sky-500 to-blue-500 text-white'
+                }`}>
+                  {user.plan}
+                </span>
+              )}
               <ChevronRight className="h-3.5 w-3.5 text-slate-400 hidden sm:block" />
             </Link>
           </div>
@@ -453,11 +494,38 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
         {/* ─── Page Content ─── */}
         <main className="flex-1 min-h-0 overflow-y-auto">
-          <div className="p-4 md:p-6 lg:p-8 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] max-w-7xl mx-auto w-full">
+          <div className="p-4 md:p-6 lg:p-8 pb-[calc(5rem+env(safe-area-inset-bottom,0px))] md:pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] max-w-7xl mx-auto w-full">
             {children}
           </div>
         </main>
       </div>
+
+      {/* ─── Mobile Bottom Navigation Bar ─── */}
+      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/80 backdrop-blur-md border-t border-slate-200/80 px-2 py-1.5 flex items-center justify-around md:hidden pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))]">
+        {[
+          { name: 'Home', href: '/', icon: LayoutDashboard },
+          { name: 'AI Coach', href: '/ai-coach', icon: MessageSquareCode },
+          { name: 'Jobs', href: '/jobs', icon: Briefcase },
+          { name: 'Network', href: '/network', icon: Users },
+          { name: 'Profile', href: '/profile', icon: UserCircle }
+        ].map(item => {
+          const Icon = item.icon;
+          const active = pathname === item.href;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl transition-all duration-150 select-none ${
+                active ? 'text-sky-600 font-extrabold scale-105' : 'text-slate-400 hover:text-slate-700 font-medium'
+              }`}
+            >
+              <Icon className="h-5 w-5 shrink-0" />
+              <span className="text-[10px] tracking-tight">{item.name}</span>
+            </Link>
+          );
+        })}
+      </nav>
+
 
       {/* ─── Floating Global Chatbot Bubble & Drawer ─── */}
       {!isAdmin && (

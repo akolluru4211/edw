@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import axios from 'axios'
 import crypto from 'crypto'
-import { prisma } from '../lib/db'
+import { prisma, firebaseAuth } from '../lib/db'
 import type { AuthenticatedRequest } from '../middlewares/auth'
 import { sendEmail, getEmailTemplate } from '../lib/email'
 
@@ -51,28 +51,21 @@ export const register = async (req: Request, res: Response) => {
 
     const passwordHash = await bcrypt.hash(password, 10)
     
-    // Sign up user in Supabase Auth first
-    const supabaseUrl = 'https://zfmprakiunbqsisqsiet.supabase.co'
-    const supabaseKey = 'sb_publishable_7AxFqBP4O2Otz6y1jFcn4A_6WOrXTBH'
-    let supabaseUserId: string | null = null
+    // Sign up user in Firebase Auth first
+    let firebaseUserId: string | null = null
     try {
-      const sbRes = await axios.post(`${supabaseUrl}/auth/v1/signup`, {
+      const fbUser = await firebaseAuth.createUser({
         email,
-        password
-      }, {
-        headers: {
-          'apikey': supabaseKey,
-          'Content-Type': 'application/json'
-        }
+        password,
+        displayName: fullName
       })
-      supabaseUserId = sbRes.data?.id || sbRes.data?.user?.id
+      firebaseUserId = fbUser.uid
     } catch (err: any) {
-      console.error('Failed to register user in Supabase Auth:', err.response?.data || err.message)
-      const errorMsg = err.response?.data?.msg || err.response?.data?.error_description || err.message
-      if (errorMsg.toLowerCase().includes('already') || errorMsg.toLowerCase().includes('exists')) {
+      console.error('Failed to register user in Firebase Auth:', err.message)
+      if (err.code === 'auth/email-already-exists') {
         return res.status(400).json({ error: 'An account with this email is already registered in our authentication system. Please sign in instead.' })
       }
-      return res.status(400).json({ error: `Supabase Auth signup failed: ${errorMsg}` })
+      return res.status(400).json({ error: `Firebase Auth signup failed: ${err.message}` })
     }
 
     // All signups default to STUDENT
@@ -96,7 +89,7 @@ export const register = async (req: Request, res: Response) => {
     const newUser = await prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
         data: {
-          id: supabaseUserId || undefined,
+          id: firebaseUserId || undefined,
           email,
           passwordHash,
           fullName,
@@ -205,32 +198,22 @@ export const login = async (req: Request, res: Response) => {
       include: { profile: true }
     })
 
-    const supabaseUrl = 'https://zfmprakiunbqsisqsiet.supabase.co'
-    const supabaseKey = 'sb_publishable_7AxFqBP4O2Otz6y1jFcn4A_6WOrXTBH'
-    let supabaseAuthSuccess = false
-    let supabaseUserId: string | null = null
+    let firebaseAuthSuccess = false
+    let firebaseUserId: string | null = null
 
-    // Try to login/sync user in Supabase Auth first
+    // Try to login/sync user in Firebase Auth first
     try {
-      const sbRes = await axios.post(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
-        email,
-        password
-      }, {
-        headers: {
-          'apikey': supabaseKey,
-          'Content-Type': 'application/json'
-        }
-      })
-      supabaseAuthSuccess = true
-      supabaseUserId = sbRes.data?.user?.id || sbRes.data?.id
-      console.log(`Supabase Auth login synced successfully for ${email}`)
+      const fbUser = await firebaseAuth.getUserByEmail(email)
+      firebaseAuthSuccess = true
+      firebaseUserId = fbUser.uid
+      console.log(`Firebase Auth account found for ${email}`)
     } catch (err: any) {
-      console.error(`Supabase Auth sync login failed for ${email}:`, err.response?.data || err.message)
+      console.log(`Firebase Auth check: user does not exist or fetch failed for ${email}: ${err.message}`)
     }
 
     if (!user) {
-      if (supabaseAuthSuccess && supabaseUserId) {
-        // User exists in Supabase Auth but is missing from local database (e.g. fresh environment).
+      if (firebaseAuthSuccess && firebaseUserId) {
+        // User exists in Firebase Auth but is missing from local database (e.g. fresh environment).
         // Let's dynamically recreate the local user record to restore alignment!
         const passwordHash = await bcrypt.hash(password, 10)
         const namePart = email.split('@')[0].toUpperCase()
@@ -239,7 +222,7 @@ export const login = async (req: Request, res: Response) => {
         const recreatedUser = await prisma.$transaction(async (tx) => {
           const u = await tx.user.create({
             data: {
-              id: supabaseUserId,
+              id: firebaseUserId,
               email,
               passwordHash,
               fullName: namePart,
@@ -263,54 +246,37 @@ export const login = async (req: Request, res: Response) => {
           return { ...u, profile: p }
         })
         user = recreatedUser
-        console.log(`Dynamically recreated missing local record for Supabase user: ${email}`)
+        console.log(`Dynamically recreated missing local record for Firebase user: ${email}`)
       } else {
         return res.status(401).json({ error: 'Invalid email or password' })
       }
     } else {
       // Verify local password
       if (!(await bcrypt.compare(password, user.passwordHash))) {
-        // If they authenticated successfully on Supabase, they must have updated their password via recovery!
-        // Let's update their password locally to stay in sync!
-        if (supabaseAuthSuccess) {
-          const newPasswordHash = await bcrypt.hash(password, 10)
-          const updatedUser = await prisma.user.update({
-            where: { id: user.id },
-            data: { passwordHash: newPasswordHash },
-            include: { profile: true }
-          })
-          user = updatedUser
-          console.log(`Updated local password hash to match Supabase Auth password reset for ${email}`)
-        } else {
-          // Log login failure
-          await prisma.dataLog.create({
-            data: {
-              type: 'LOGIN_FAILURE',
-              email,
-              ipAddress: req.ip || null,
-              details: 'Incorrect password'
-            }
-          }).catch(err => console.error('Failed to write login failure log:', err))
+        // Log login failure
+        await prisma.dataLog.create({
+          data: {
+            type: 'LOGIN_FAILURE',
+            email,
+            ipAddress: req.ip || null,
+            details: 'Incorrect password'
+          }
+        }).catch(err => console.error('Failed to write login failure log:', err))
 
-          return res.status(401).json({ error: 'Invalid email or password' })
-        }
+        return res.status(401).json({ error: 'Invalid email or password' })
       }
 
-      // If user exists locally but was not in Supabase Auth, let's auto-register them
-      if (!supabaseAuthSuccess) {
+      // If user exists locally but was not in Firebase Auth, let's auto-register them
+      if (!firebaseAuthSuccess) {
         try {
-          await axios.post(`${supabaseUrl}/auth/v1/signup`, {
+          const fbUser = await firebaseAuth.createUser({
             email,
-            password
-          }, {
-            headers: {
-              'apikey': supabaseKey,
-              'Content-Type': 'application/json'
-            }
+            password,
+            displayName: user.fullName
           })
-          console.log(`Auto-registered ${email} in Supabase Auth on login.`)
+          console.log(`Auto-registered ${email} in Firebase Auth on login.`)
         } catch (signupErr: any) {
-          console.error(`Auto-registration in Supabase Auth failed for ${email}:`, signupErr.response?.data || signupErr.message)
+          console.error(`Auto-registration in Firebase Auth failed for ${email}:`, signupErr.message)
         }
       }
     }
@@ -571,5 +537,112 @@ export const saveKeys = async (req: AuthenticatedRequest, res: Response) => {
   } catch (error) {
     console.error('Save keys error:', error)
     res.status(500).json({ error: 'Internal server error saving keys' })
+  }
+}
+
+export const firebaseLogin = async (req: Request, res: Response) => {
+  const { idToken } = req.body
+  if (!idToken) {
+    return res.status(400).json({ error: 'ID token is required' })
+  }
+
+  try {
+    const decodedToken = await firebaseAuth.verifyIdToken(idToken)
+    const { email, name, uid } = decodedToken
+
+    if (!email) {
+      return res.status(400).json({ error: 'OAuth provider did not return an email address.' })
+    }
+
+    let user = await prisma.user.findUnique({
+      where: { id: uid },
+      include: { profile: true }
+    })
+
+    if (!user) {
+      // Create user and profile dynamically in transaction if first-time login
+      const namePart = (name || email.split('@')[0]).toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4)
+      const memberId = `EDW-${namePart}-${Math.floor(1000 + Math.random() * 9000)}`
+      const slug = (name || email.split('@')[0]).toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + Math.floor(Math.random() * 1000)
+
+      user = await prisma.$transaction(async (tx) => {
+        const u = await tx.user.create({
+          data: {
+            id: uid,
+            email,
+            fullName: name || email.split('@')[0],
+            role: 'STUDENT',
+            memberId
+          }
+        })
+
+        const p = await tx.profile.create({
+          data: {
+            userId: u.id,
+            collegeName: 'GITAM University',
+            degree: 'Bachelor of Technology',
+            branch: 'Computer Science and Engineering',
+            graduationYear: 2026,
+            interests: '[]',
+            goals: '[]',
+            portfolioUrl: slug,
+            readinessScore: 20
+          }
+        })
+
+        await tx.pointTransaction.create({
+          data: {
+            userId: u.id,
+            points: 50,
+            description: "Welcome Signup Reward"
+          }
+        })
+
+        return { ...u, profile: p }
+      })
+
+      // Log OAuth signup event
+      await prisma.dataLog.create({
+        data: {
+          type: 'OAUTH_SIGNUP',
+          email,
+          ipAddress: req.ip || null,
+          details: `User signed up via OAuth. UID: ${uid}, MemberId: ${memberId}`
+        }
+      }).catch(err => console.error('Failed to write OAuth signup log:', err))
+    } else {
+      // Log OAuth login success
+      await prisma.dataLog.create({
+        data: {
+          type: 'OAUTH_LOGIN',
+          email,
+          ipAddress: req.ip || null,
+          details: `User logged in via OAuth. UID: ${uid}`
+        }
+      }).catch(err => console.error('Failed to write OAuth login log:', err))
+    }
+
+    const tokenSecret = process.env.JWT_SECRET || 'fallback_secret'
+    const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, tokenSecret, { expiresIn: '7d' })
+
+    res.json({
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        fullName: user.fullName,
+        role: user.role,
+        memberId: user.memberId,
+        publicKey: user.publicKey,
+        encryptedPrivateKey: user.encryptedPrivateKey,
+        keySalt: user.keySalt,
+        keyIv: user.keyIv,
+        edPoints: user.edPoints,
+        profile: user.profile
+      }
+    })
+  } catch (error: any) {
+    console.error('Firebase OAuth login error:', error)
+    res.status(500).json({ error: `OAuth verification failed: ${error.message}` })
   }
 }

@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ShieldCheck, 
   Users, 
@@ -17,7 +17,12 @@ import {
   Lock,
   MessageSquare,
   Download,
-  Send
+  Send,
+  Coins,
+  Activity,
+  Plus,
+  Minus,
+  Sparkles
 } from 'lucide-react';
 
 interface AdminMetrics {
@@ -39,13 +44,37 @@ interface UserAccount {
   role: 'STUDENT' | 'ALUMNI' | 'MENTOR' | 'ADMIN';
   createdAt: string;
   memberId?: string;
+  edPoints: number;
+}
+
+interface PointTransaction {
+  id: string;
+  points: number;
+  description: string;
+  createdAt: string;
+  user?: {
+    fullName: string;
+    email: string;
+  };
+}
+
+interface ActivityLog {
+  id: string;
+  type: string;
+  email: string;
+  details: string;
+  ipAddress?: string;
+  createdAt: string;
 }
 
 export default function AdminConsole() {
   const { user } = useAuth();
   
+  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'transactions' | 'logs'>('overview');
   const [metrics, setMetrics] = useState<AdminMetrics | null>(null);
   const [users, setUsers] = useState<UserAccount[]>([]);
+  const [transactions, setTransactions] = useState<PointTransaction[]>([]);
+  const [logs, setLogs] = useState<ActivityLog[]>([]);
   
   const [loading, setLoading] = useState(true);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
@@ -64,25 +93,21 @@ export default function AdminConsole() {
       return;
     }
 
-    // Define CSV Headers
-    const headers = ["Member ID", "Full Name", "Email", "Role", "Registered Date"];
-    
-    // Format rows
+    const headers = ["Member ID", "Full Name", "Email", "Role", "Ed Points", "Registered Date"];
     const rows = users.map(u => [
       u.memberId || 'N/A',
       u.fullName,
       u.email,
       u.role,
+      u.edPoints,
       new Date(u.createdAt).toLocaleDateString()
     ]);
 
-    // Build CSV Content
     const csvContent = [
       headers.join(","),
-      ...rows.map(row => row.map(val => `"${val.replace(/"/g, '""')}"`).join(","))
+      ...rows.map(row => row.map(val => `"${String(val).replace(/"/g, '""')}"`).join(","))
     ].join("\n");
 
-    // Create a Blob and download link
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -112,6 +137,7 @@ export default function AdminConsole() {
       setBulkSuccess(`Successfully dispatched announcement to ${response.data.count} users!`);
       setBulkTitle('');
       setBulkText('');
+      fetchAdminData();
     } catch (err: any) {
       console.error(err);
       setBulkError(err.response?.data?.error || "Failed to send bulk announcements.");
@@ -129,6 +155,12 @@ export default function AdminConsole() {
       
       const usersRes = await api.get('/admin/users');
       setUsers(usersRes.data);
+
+      const logsRes = await api.get('/admin/logs');
+      setLogs(logsRes.data);
+
+      const txRes = await api.get('/admin/transactions');
+      setTransactions(txRes.data);
     } catch (err: any) {
       console.error(err);
       setErrorMsg('Unauthorized or failed to retrieve administrative controls.');
@@ -143,7 +175,6 @@ export default function AdminConsole() {
     }
   }, [user]);
 
-  // Deny access check
   if (user?.role !== 'ADMIN') {
     return (
       <div className="min-h-[60vh] flex items-center justify-center p-6">
@@ -165,11 +196,26 @@ export default function AdminConsole() {
     try {
       await api.put(`/admin/users/${userId}/role`, { role: newRole });
       setUsers(prev => prev.map(u => u.id === userId ? { ...u, role: newRole as any } : u));
-      // Refresh metrics
       const metricsRes = await api.get('/admin/metrics');
       setMetrics(metricsRes.data.metrics);
     } catch (err) {
       console.error('Failed to update user role:', err);
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const handleAdjustPoints = async (userId: string, currentPoints: number, amount: number) => {
+    setActionLoadingId(userId);
+    const newPoints = Math.max(0, currentPoints + amount);
+    try {
+      await api.put(`/admin/users/${userId}/points`, { points: newPoints });
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, edPoints: newPoints } : u));
+      
+      const txRes = await api.get('/admin/transactions');
+      setTransactions(txRes.data);
+    } catch (err) {
+      console.error('Failed to adjust user points:', err);
     } finally {
       setActionLoadingId(null);
     }
@@ -186,13 +232,25 @@ export default function AdminConsole() {
     try {
       await api.delete(`/admin/users/${userId}`);
       setUsers(prev => prev.filter(u => u.id !== userId));
-      // Refresh metrics
       const metricsRes = await api.get('/admin/metrics');
       setMetrics(metricsRes.data.metrics);
     } catch (err) {
       console.error('Failed to delete user:', err);
     } finally {
       setActionLoadingId(null);
+    }
+  };
+
+  const handleClearLogs = async () => {
+    if (!confirm("Are you sure you want to delete all activity logs from the database?")) return;
+    setLoading(true);
+    try {
+      await api.delete('/admin/logs');
+      setLogs([]);
+    } catch (err) {
+      console.error('Failed to clear logs:', err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -206,21 +264,21 @@ export default function AdminConsole() {
             <span>Admin Control Panel</span>
           </h1>
           <p className="text-slate-500 text-sm mt-1 font-medium">
-            Monitor system-wide metrics, review student account listings, adjust system roles, and audit SQLite database stats.
+            Monitor system-wide metrics, review student account listings, adjust system roles, and audit database telemetry.
           </p>
         </div>
 
-        <div className="flex gap-3 items-center">
+        <div className="flex gap-3 items-center shrink-0">
           <button 
             onClick={handleExportExcel}
             className="bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-500 px-4 py-2.5 rounded-xl flex items-center gap-2 text-xs font-bold shadow-sm transition-all cursor-pointer"
           >
             <Download className="h-4 w-4" />
-            <span>Export Users to Excel</span>
+            <span>Export Users</span>
           </button>
           <button 
             onClick={fetchAdminData}
-            className="text-slate-400 hover:text-slate-600 bg-white border border-slate-200 px-4 py-2.5 rounded-xl flex items-center gap-1.5 text-xs font-bold shadow-sm transition-all cursor-pointer"
+            className="text-slate-500 hover:text-slate-700 bg-white border border-slate-200 px-4 py-2.5 rounded-xl flex items-center gap-1.5 text-xs font-bold shadow-sm transition-all cursor-pointer"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             <span>Sync Telemetry</span>
@@ -229,175 +287,369 @@ export default function AdminConsole() {
       </div>
 
       {errorMsg && (
-        <div className="bg-red-50 border border-red-200 text-red-600 text-xs font-semibold p-4 rounded-2xl">
+        <div className="bg-red-50 border border-red-200 text-red-600 text-xs font-semibold p-4 rounded-2xl animate-fade-in">
           {errorMsg}
         </div>
       )}
 
-      {/* Database Telemetry Grid */}
-      {metrics && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-          {[
-            { label: 'Total Accounts', val: metrics.users, icon: Users, color: 'text-sky-600 bg-sky-50' },
-            { label: 'Scanned Resumes', val: metrics.resumes, icon: FileText, color: 'text-amber-600 bg-amber-50' },
-            { label: 'Active Openings', val: metrics.opportunities, icon: Briefcase, color: 'text-blue-600 bg-blue-50' },
-            { label: 'Connected Peers', val: metrics.connections, icon: TrendingUp, color: 'text-emerald-600 bg-emerald-50' },
-            { label: 'Discussion Posts', val: metrics.posts, icon: MessagesSquare, color: 'text-violet-600 bg-violet-50' },
-            { label: 'AI Mentorship Chats', val: metrics.chats, icon: MessageSquare, color: 'text-pink-600 bg-pink-50' }
-          ].map((item, idx) => {
-            const Icon = item.icon;
-            return (
-              <motion.div
-                key={item.label}
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: idx * 0.04 }}
-                className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between"
-              >
-                <div>
-                  <span className="text-slate-400 text-[10px] font-bold uppercase tracking-wider">{item.label}</span>
-                  <h3 className="text-xl font-black text-slate-800 mt-1">{item.val}</h3>
-                </div>
-                <div className={`p-2.5 rounded-xl ${item.color}`}>
-                  <Icon className="h-5 w-5" />
-                </div>
-              </motion.div>
-            );
-          })}
-        </div>
-      )}
+      {/* Admin Tab Selectors */}
+      <div className="flex gap-1 bg-slate-100 p-1 rounded-2xl w-fit overflow-x-auto max-w-full">
+        {[
+          { id: 'overview', label: 'System Overview', icon: ShieldCheck },
+          { id: 'users', label: 'User Accounts', icon: Users },
+          { id: 'transactions', label: 'Point Transactions', icon: Coins },
+          { id: 'logs', label: 'Activity Audit Logs', icon: Activity }
+        ].map(t => {
+          const Icon = t.icon;
+          return (
+            <button
+              key={t.id}
+              onClick={() => setActiveTab(t.id as any)}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                activeTab === t.id
+                  ? 'bg-white text-slate-900 shadow-md'
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              <Icon className="h-4 w-4 shrink-0" />
+              <span>{t.label}</span>
+            </button>
+          );
+        })}
+      </div>
 
-      {/* Bulk Announcement Center */}
-      <div className="bg-white border border-slate-200 rounded-3xl p-6 md:p-8 shadow-sm">
-        <h2 className="text-slate-800 font-extrabold text-base tracking-tight mb-2 flex items-center gap-2">
-          <MessagesSquare className="h-5 w-5 text-sky-600" />
-          Bulk Announcement Center
-        </h2>
-        <p className="text-slate-400 text-xs font-semibold mb-6">
-          Broadcast a custom notification and dispatch an automated email with "Edworld Co." branding and logo to all registered platform users.
-        </p>
-
-        {bulkSuccess && (
-          <div className="bg-emerald-50 border border-emerald-200 text-emerald-600 text-xs font-semibold p-4 rounded-2xl mb-6">
-            {bulkSuccess}
-          </div>
-        )}
-
-        {bulkError && (
-          <div className="bg-red-50 border border-red-200 text-red-600 text-xs font-semibold p-4 rounded-2xl mb-6">
-            {bulkError}
-          </div>
-        )}
-
-        <form onSubmit={handleSendBulkAnnouncement} className="space-y-4">
-          <div>
-            <label className="block text-slate-600 font-bold text-xs mb-1.5">Announcement Title / Email Subject</label>
-            <input 
-              type="text"
-              placeholder="e.g. Platform System Maintenance Schedule"
-              value={bulkTitle}
-              onChange={(e) => setBulkTitle(e.target.value)}
-              className="w-full bg-slate-50 hover:bg-slate-100 focus:bg-white text-xs text-slate-800 rounded-xl px-4 py-3 border border-slate-200 focus:border-sky-300 focus:outline-none transition-all"
-            />
-          </div>
-
-          <div>
-            <label className="block text-slate-600 font-bold text-xs mb-1.5">Message Content</label>
-            <textarea 
-              rows={4}
-              placeholder="Type your bulk custom message here..."
-              value={bulkText}
-              onChange={(e) => setBulkText(e.target.value)}
-              className="w-full bg-slate-50 hover:bg-slate-100 focus:bg-white text-xs text-slate-800 rounded-xl px-4 py-3 border border-slate-200 focus:border-sky-300 focus:outline-none transition-all resize-none"
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={sendingBulk}
-            className="bg-sky-600 hover:bg-sky-700 disabled:bg-sky-400 text-white font-bold text-xs px-5 py-3 rounded-xl shadow-md flex items-center justify-center gap-2 transition-all mt-4 cursor-pointer"
+      {/* Tab Panels */}
+      <AnimatePresence mode="wait">
+        {activeTab === 'overview' && (
+          <motion.div
+            key="overview"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="space-y-6"
           >
-            {sendingBulk ? (
-              <>
-                <RefreshCw className="h-4 w-4 animate-spin" />
-                <span>Broadcasting to all users...</span>
-              </>
-            ) : (
-              <>
-                <Send className="h-4 w-4" />
-                <span>Send Broadcast Announcement & Email</span>
-              </>
-            )}
-          </button>
-        </form>
-      </div>
-
-      {/* User listings Table */}
-      <div className="bg-white border border-slate-200 shadow-sm rounded-3xl overflow-hidden">
-        <div className="p-6 md:p-8 border-b border-slate-100 flex items-center gap-2">
-          <UserCog className="h-5 w-5 text-sky-600" />
-          <h2 className="text-slate-800 font-extrabold text-base tracking-tight">Active User Accounts</h2>
-        </div>
-
-        {loading ? (
-          <div className="flex h-48 items-center justify-center">
-            <RefreshCw className="h-6 w-6 animate-spin text-slate-400" />
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-50 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
-                  <th className="p-4 pl-6">Candidate Name</th>
-                  <th className="p-4">Email</th>
-                  <th className="p-4">Registered On</th>
-                  <th className="p-4">Authorization Role</th>
-                  <th className="p-4 pr-6 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-xs font-semibold text-slate-700">
-                {users.map(u => (
-                  <tr key={u.id} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="p-4 pl-6">
-                      <div className="flex items-center gap-2.5">
-                        <div className="h-7 w-7 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center font-bold text-[10px]">
-                          {u.fullName.split(' ').map(n => n[0]).join('').toUpperCase()}
-                        </div>
-                        <span className="font-bold text-slate-800">{u.fullName}</span>
+            {/* Database Telemetry Grid */}
+            {metrics && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+                {[
+                  { label: 'Total Accounts', val: metrics.users, icon: Users, color: 'text-sky-600 bg-sky-50' },
+                  { label: 'Scanned Resumes', val: metrics.resumes, icon: FileText, color: 'text-amber-600 bg-amber-50' },
+                  { label: 'Active Openings', val: metrics.opportunities, icon: Briefcase, color: 'text-blue-600 bg-blue-50' },
+                  { label: 'Connected Peers', val: metrics.connections, icon: TrendingUp, color: 'text-emerald-600 bg-emerald-50' },
+                  { label: 'Discussion Posts', val: metrics.posts, icon: MessagesSquare, color: 'text-violet-600 bg-violet-50' },
+                  { label: 'AI Mentorship Chats', val: metrics.chats, icon: MessageSquare, color: 'text-pink-600 bg-pink-50' }
+                ].map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <div
+                      key={item.label}
+                      className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between"
+                    >
+                      <div>
+                        <span className="text-slate-400 text-[10px] font-bold uppercase tracking-wider">{item.label}</span>
+                        <h3 className="text-xl font-black text-slate-800 mt-1">{item.val}</h3>
                       </div>
-                    </td>
-                    <td className="p-4 text-slate-500 font-medium select-all">{u.email}</td>
-                    <td className="p-4 text-slate-400 font-medium">{new Date(u.createdAt).toLocaleDateString()}</td>
-                    <td className="p-4">
-                      <select
-                        value={u.role}
-                        disabled={actionLoadingId === u.id}
-                        onChange={(e) => handleUpdateRole(u.id, e.target.value)}
-                        className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-[10px] font-bold text-slate-600 focus:outline-none"
-                      >
-                        <option value="STUDENT">Student</option>
-                        <option value="ALUMNI">Alumni</option>
-                        <option value="MENTOR">Mentor</option>
-                        <option value="ADMIN">Admin</option>
-                      </select>
-                    </td>
-                    <td className="p-4 pr-6 text-right">
-                      <button
-                        onClick={() => handleDeleteUser(u.id)}
-                        disabled={actionLoadingId === u.id}
-                        className="text-slate-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50 transition-colors"
-                      >
-                        <Trash2 className="h-4.5 w-4.5" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+                      <div className={`p-2.5 rounded-xl ${item.color}`}>
+                        <Icon className="h-5 w-5" />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
+            {/* Bulk Announcement Center */}
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 md:p-8 shadow-sm">
+              <h2 className="text-slate-800 font-extrabold text-base tracking-tight mb-2 flex items-center gap-2">
+                <MessagesSquare className="h-5 w-5 text-sky-600" />
+                Bulk Announcement Center
+              </h2>
+              <p className="text-slate-400 text-xs font-semibold mb-6">
+                Broadcast a custom notification and dispatch an automated email with "Edworld Co." branding and logo to all registered platform users.
+              </p>
+
+              {bulkSuccess && (
+                <div className="bg-emerald-50 border border-emerald-200 text-emerald-600 text-xs font-semibold p-4 rounded-2xl mb-6">
+                  {bulkSuccess}
+                </div>
+              )}
+
+              {bulkError && (
+                <div className="bg-red-50 border border-red-200 text-red-600 text-xs font-semibold p-4 rounded-2xl mb-6">
+                  {bulkError}
+                </div>
+              )}
+
+              <form onSubmit={handleSendBulkAnnouncement} className="space-y-4">
+                <div>
+                  <label className="block text-slate-600 font-bold text-xs mb-1.5">Announcement Title / Email Subject</label>
+                  <input 
+                    type="text"
+                    placeholder="e.g. Platform System Maintenance Schedule"
+                    value={bulkTitle}
+                    onChange={(e) => setBulkTitle(e.target.value)}
+                    className="w-full bg-slate-50 hover:bg-slate-100 focus:bg-white text-xs text-slate-800 rounded-xl px-4 py-3 border border-slate-200 focus:border-sky-300 focus:outline-none transition-all"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-600 font-bold text-xs mb-1.5">Message Content</label>
+                  <textarea 
+                    rows={4}
+                    placeholder="Type your bulk custom message here..."
+                    value={bulkText}
+                    onChange={(e) => setBulkText(e.target.value)}
+                    className="w-full bg-slate-50 hover:bg-slate-100 focus:bg-white text-xs text-slate-800 rounded-xl px-4 py-3 border border-slate-200 focus:border-sky-300 focus:outline-none transition-all resize-none"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={sendingBulk}
+                  className="bg-sky-600 hover:bg-sky-700 disabled:bg-sky-400 text-white font-bold text-xs px-5 py-3 rounded-xl shadow-md flex items-center justify-center gap-2 transition-all mt-4 cursor-pointer"
+                >
+                  {sendingBulk ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                      <span>Broadcasting to all users...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Send className="h-4 w-4" />
+                      <span>Send Broadcast Announcement & Email</span>
+                    </>
+                  )}
+                </button>
+              </form>
+            </div>
+          </motion.div>
+        )}
+
+        {activeTab === 'users' && (
+          <motion.div
+            key="users"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="bg-white border border-slate-200 shadow-sm rounded-3xl overflow-hidden"
+          >
+            <div className="p-6 md:p-8 border-b border-slate-100 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <UserCog className="h-5 w-5 text-sky-600" />
+                <h2 className="text-slate-800 font-extrabold text-base tracking-tight">Active User Accounts</h2>
+              </div>
+              <span className="text-xs font-bold text-slate-400 bg-slate-100 px-3 py-1 rounded-full">{users.length} Total</span>
+            </div>
+
+            {loading ? (
+              <div className="flex h-48 items-center justify-center">
+                <RefreshCw className="h-6 w-6 animate-spin text-slate-400" />
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
+                      <th className="p-4 pl-6">Candidate Name</th>
+                      <th className="p-4">Email</th>
+                      <th className="p-4">Ed Points</th>
+                      <th className="p-4">Authorization Role</th>
+                      <th className="p-4">Registered On</th>
+                      <th className="p-4 pr-6 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-xs font-semibold text-slate-700">
+                    {users.map(u => (
+                      <tr key={u.id} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="p-4 pl-6">
+                          <div className="flex items-center gap-2.5">
+                            <div className="h-7 w-7 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center font-bold text-[10px]">
+                              {u.fullName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+                            </div>
+                            <span className="font-bold text-slate-800">{u.fullName}</span>
+                          </div>
+                        </td>
+                        <td className="p-4 text-slate-500 font-medium select-all">{u.email}</td>
+                        <td className="p-4">
+                          <div className="flex items-center gap-2">
+                            <Coins className="h-3.5 w-3.5 text-amber-500" />
+                            <span className="font-extrabold text-slate-800">{u.edPoints} Pts</span>
+                            <div className="flex gap-1 ml-2">
+                              <button
+                                onClick={() => handleAdjustPoints(u.id, u.edPoints, 200)}
+                                disabled={actionLoadingId === u.id}
+                                title="Award 200 Points"
+                                className="p-1 text-emerald-600 hover:bg-emerald-50 rounded border border-emerald-200 transition-all cursor-pointer"
+                              >
+                                <Plus className="h-3 w-3" />
+                              </button>
+                              <button
+                                onClick={() => handleAdjustPoints(u.id, u.edPoints, -200)}
+                                disabled={actionLoadingId === u.id || u.edPoints < 200}
+                                title="Deduct 200 Points"
+                                className="p-1 text-rose-600 hover:bg-rose-50 rounded border border-rose-200 transition-all cursor-pointer"
+                              >
+                                <Minus className="h-3 w-3" />
+                              </button>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-4">
+                          <select
+                            value={u.role}
+                            disabled={actionLoadingId === u.id}
+                            onChange={(e) => handleUpdateRole(u.id, e.target.value)}
+                            className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-[10px] font-bold text-slate-600 focus:outline-none"
+                          >
+                            <option value="STUDENT">Student</option>
+                            <option value="ALUMNI">Alumni</option>
+                            <option value="MENTOR">Mentor</option>
+                            <option value="ADMIN">Admin</option>
+                          </select>
+                        </td>
+                        <td className="p-4 text-slate-400 font-medium">{new Date(u.createdAt).toLocaleDateString()}</td>
+                        <td className="p-4 pr-6 text-right">
+                          <button
+                            onClick={() => handleDeleteUser(u.id)}
+                            disabled={actionLoadingId === u.id}
+                            className="text-slate-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50 transition-colors"
+                          >
+                            <Trash2 className="h-4.5 w-4.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </motion.div>
+        )}
+
+        {activeTab === 'transactions' && (
+          <motion.div
+            key="transactions"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="bg-white border border-slate-200 shadow-sm rounded-3xl overflow-hidden"
+          >
+            <div className="p-6 md:p-8 border-b border-slate-100 flex items-center gap-2">
+              <Coins className="h-5 w-5 text-sky-600" />
+              <h2 className="text-slate-800 font-extrabold text-base tracking-tight">Point Transactions Ledger</h2>
+            </div>
+
+            {loading ? (
+              <div className="flex h-48 items-center justify-center">
+                <RefreshCw className="h-6 w-6 animate-spin text-slate-400" />
+              </div>
+            ) : transactions.length === 0 ? (
+              <div className="p-12 text-center text-slate-400 font-medium text-sm">
+                No point transactions logged in the ledger yet.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
+                      <th className="p-4 pl-6">Member Name</th>
+                      <th className="p-4">Email</th>
+                      <th className="p-4">Points Delta</th>
+                      <th className="p-4">Log Description</th>
+                      <th className="p-4 pr-6">Timestamp</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-xs font-semibold text-slate-700">
+                    {transactions.map(tx => (
+                      <tr key={tx.id} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="p-4 pl-6 text-slate-800 font-bold">{tx.user?.fullName || 'System Event'}</td>
+                        <td className="p-4 text-slate-500 font-medium">{tx.user?.email || 'N/A'}</td>
+                        <td className="p-4">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-black tracking-wide ${
+                            tx.points > 0 
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
+                              : 'bg-rose-50 text-rose-700 border border-rose-200'
+                          }`}>
+                            {tx.points > 0 ? `+${tx.points}` : tx.points} Pts
+                          </span>
+                        </td>
+                        <td className="p-4 text-slate-600 font-medium">{tx.description}</td>
+                        <td className="p-4 pr-6 text-slate-400 font-medium">{new Date(tx.createdAt).toLocaleString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </motion.div>
+        )}
+
+        {activeTab === 'logs' && (
+          <motion.div
+            key="logs"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="bg-white border border-slate-200 shadow-sm rounded-3xl overflow-hidden"
+          >
+            <div className="p-6 md:p-8 border-b border-slate-100 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Activity className="h-5 w-5 text-sky-600" />
+                <h2 className="text-slate-800 font-extrabold text-base tracking-tight">System Audit & Activity Logs</h2>
+              </div>
+              {logs.length > 0 && (
+                <button
+                  onClick={handleClearLogs}
+                  className="text-xs font-bold text-red-500 hover:text-red-700 border border-red-200 hover:border-red-300 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg transition-all cursor-pointer"
+                >
+                  Clear Logs
+                </button>
+              )}
+            </div>
+
+            {loading ? (
+              <div className="flex h-48 items-center justify-center">
+                <RefreshCw className="h-6 w-6 animate-spin text-slate-400" />
+              </div>
+            ) : logs.length === 0 ? (
+              <div className="p-12 text-center text-slate-400 font-medium text-sm">
+                No activity logs in the system database.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
+                      <th className="p-4 pl-6">Log Type</th>
+                      <th className="p-4">Actor Email</th>
+                      <th className="p-4">Details</th>
+                      <th className="p-4">IP Address</th>
+                      <th className="p-4 pr-6">Timestamp</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-xs font-semibold text-slate-700">
+                    {logs.map(log => (
+                      <tr key={log.id} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="p-4 pl-6">
+                          <span className="px-2 py-0.5 bg-slate-100 border border-slate-200/80 text-slate-700 font-mono text-[9px] font-black rounded-md tracking-wider">
+                            {log.type}
+                          </span>
+                        </td>
+                        <td className="p-4 text-slate-800 font-bold">{log.email}</td>
+                        <td className="p-4 text-slate-500 font-medium leading-relaxed max-w-sm truncate" title={log.details}>
+                          {log.details}
+                        </td>
+                        <td className="p-4 text-slate-400 font-mono font-medium">{log.ipAddress || 'local'}</td>
+                        <td className="p-4 pr-6 text-slate-400 font-medium">{new Date(log.createdAt).toLocaleString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

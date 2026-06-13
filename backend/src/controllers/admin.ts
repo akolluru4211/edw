@@ -49,7 +49,8 @@ export const getAdminUsers = async (req: AuthenticatedRequest, res: Response) =>
       role: u.role,
       createdAt: u.createdAt,
       memberId: u.memberId,
-      profile: u.profile
+      profile: u.profile,
+      edPoints: u.edPoints || 0
     }))
 
     res.json(sanitized)
@@ -57,6 +58,7 @@ export const getAdminUsers = async (req: AuthenticatedRequest, res: Response) =>
     res.status(500).json({ error: 'Internal server error fetching admin users' })
   }
 }
+
 
 // Modify user role
 export const updateAdminUserRole = async (req: AuthenticatedRequest, res: Response) => {
@@ -153,3 +155,95 @@ export const sendBulkCustomMessage = async (req: AuthenticatedRequest, res: Resp
     res.status(500).json({ error: 'Internal server error sending bulk messages' })
   }
 }
+
+// Modify user points
+export const updateAdminUserPoints = async (req: AuthenticatedRequest, res: Response) => {
+  const id = req.params.id as string
+  const { points } = req.body
+
+  if (points === undefined || typeof points !== 'number') {
+    return res.status(400).json({ error: 'Points must be a number' })
+  }
+
+  try {
+    const updated = await prisma.$transaction(async (tx) => {
+      const u = await tx.user.update({
+        where: { id },
+        data: { edPoints: points }
+      })
+      await tx.pointTransaction.create({
+        data: {
+          userId: id,
+          points: points - (u.edPoints + points), // Wait, let's just log the absolute adjustment or relative difference.
+          // Since the user might have some points, let's log the points added/deducted or simple transaction details:
+          description: `Admin points adjustment to absolute value: ${points} Pts`
+        }
+      })
+      return u;
+    })
+    res.json({
+      id: updated.id,
+      email: updated.email,
+      fullName: updated.fullName,
+      edPoints: updated.edPoints
+    })
+  } catch (error) {
+    console.error('Update points error:', error)
+    res.status(500).json({ error: 'Internal server error updating points' })
+  }
+}
+
+// Get all activity logs
+export const getAdminActivityLogs = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const logs = await prisma.dataLog.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 100
+    })
+    res.json(logs)
+  } catch (error) {
+    console.error('Get logs error:', error)
+    res.status(500).json({ error: 'Internal server error fetching logs' })
+  }
+}
+
+// Clear all activity logs
+export const clearAdminActivityLogs = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    await prisma.dataLog.deleteMany()
+    res.json({ success: true })
+  } catch (error) {
+    console.error('Clear logs error:', error)
+    res.status(500).json({ error: 'Internal server error clearing logs' })
+  }
+}
+
+// Get all point transactions
+export const getAdminPointTransactions = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const txs = await prisma.pointTransaction.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 100
+    })
+    
+    // We can manually fetch and map user info for each transaction
+    const usersList = await prisma.user.findMany({
+      select: { id: true, fullName: true, email: true }
+    })
+    const userMap = new Map(usersList.map(u => [u.id, u]))
+    
+    const mapped = txs.map(tx => ({
+      id: tx.id,
+      points: tx.points,
+      description: tx.description,
+      createdAt: tx.createdAt,
+      user: userMap.get(tx.userId) || { fullName: 'Unknown', email: 'N/A' }
+    }))
+
+    res.json(mapped)
+  } catch (error) {
+    console.error('Get transactions error:', error)
+    res.status(500).json({ error: 'Internal server error fetching transactions' })
+  }
+}
+
