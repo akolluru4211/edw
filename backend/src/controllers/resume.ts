@@ -5,9 +5,13 @@ import { calculateReadinessScore } from './profile'
 import multer from 'multer'
 import path from 'path'
 import fs from 'fs'
+import os from 'os'
 
 // ── Configure multer disk storage ──────────────────────────────────────────
-const uploadsDir = path.join(process.cwd(), 'uploads', 'resumes')
+const isVercel = process.env.VERCEL || process.env.NOW_BUILDER;
+const uploadsDir = isVercel
+  ? path.join(os.tmpdir(), 'uploads', 'resumes')
+  : path.join(process.cwd(), 'uploads', 'resumes')
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true })
 }
