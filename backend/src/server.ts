@@ -42,6 +42,25 @@ app.get('/health', (req, res) => {
   res.json({ status: 'healthy', timestamp: new Date() })
 })
 
+import { getStorage } from 'firebase-admin/storage'
+app.get('/test-storage', async (req, res) => {
+  try {
+    const bucket = getStorage().bucket('edworld-career-os-2026.appspot.com')
+    const [files] = await bucket.getFiles({ maxResults: 5 })
+    res.json({
+      success: true,
+      bucket: bucket.name,
+      files: files.map(f => f.name)
+    })
+  } catch (err: any) {
+    res.status(500).json({
+      success: false,
+      error: err.message,
+      stack: err.stack
+    })
+  }
+})
+
 import { syncDailyOpportunities, seedRealUsers } from './services/ragPipeline'
 
 // Auto-seed database for development
