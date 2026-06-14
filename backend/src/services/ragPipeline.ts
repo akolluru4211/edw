@@ -76,11 +76,11 @@ export const seedRealUsers = async () => {
     
     const mockUsers = [
       {
-        email: 'akolluru@student.gitam.edu',
+        email: 'edworld.eden@gmail.com',
         fullName: 'Adarsh Kolluru',
         role: 'ADMIN',
         memberId: 'EDW-AKOL-1928',
-        password: 'AdminPass123!',
+        password: '123456789',
         profile: {
           collegeName: 'GITAM University',
           degree: 'Bachelor of Technology',

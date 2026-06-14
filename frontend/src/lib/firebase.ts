@@ -17,6 +17,8 @@ const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 export const githubProvider = new GithubAuthProvider();
+githubProvider.addScope('read:user');
+githubProvider.addScope('user:email');
 
 // FCM Messaging — only available in browser contexts that support it
 // (not SSR, not iOS < 16.4, not Firefox < 90 without push support)

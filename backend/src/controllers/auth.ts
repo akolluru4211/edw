@@ -550,8 +550,11 @@ export const firebaseLogin = async (req: Request, res: Response) => {
     const decodedToken = await firebaseAuth.verifyIdToken(idToken)
     const { email, name, uid } = decodedToken
 
-    if (!email) {
-      return res.status(400).json({ error: 'OAuth provider did not return an email address.' })
+    let userEmail = email
+    if (!userEmail) {
+      const providerId = decodedToken.firebase?.sign_in_provider || 'oauth'
+      const providerName = providerId.split('.')[0] || 'oauth'
+      userEmail = `${uid}@${providerName}.placeholder.com`
     }
 
     let user = await prisma.user.findUnique({
@@ -561,16 +564,16 @@ export const firebaseLogin = async (req: Request, res: Response) => {
 
     if (!user) {
       // Create user and profile dynamically in transaction if first-time login
-      const namePart = (name || email.split('@')[0]).toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4)
+      const namePart = (name || userEmail.split('@')[0]).toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4)
       const memberId = `EDW-${namePart}-${Math.floor(1000 + Math.random() * 9000)}`
-      const slug = (name || email.split('@')[0]).toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + Math.floor(Math.random() * 1000)
+      const slug = (name || userEmail.split('@')[0]).toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + Math.floor(Math.random() * 1000)
 
       user = await prisma.$transaction(async (tx) => {
         const u = await tx.user.create({
           data: {
             id: uid,
-            email,
-            fullName: name || email.split('@')[0],
+            email: userEmail,
+            fullName: name || userEmail.split('@')[0],
             role: 'STUDENT',
             memberId
           }
@@ -605,7 +608,7 @@ export const firebaseLogin = async (req: Request, res: Response) => {
       await prisma.dataLog.create({
         data: {
           type: 'OAUTH_SIGNUP',
-          email,
+          email: userEmail,
           ipAddress: req.ip || null,
           details: `User signed up via OAuth. UID: ${uid}, MemberId: ${memberId}`
         }
@@ -615,7 +618,7 @@ export const firebaseLogin = async (req: Request, res: Response) => {
       await prisma.dataLog.create({
         data: {
           type: 'OAUTH_LOGIN',
-          email,
+          email: userEmail,
           ipAddress: req.ip || null,
           details: `User logged in via OAuth. UID: ${uid}`
         }

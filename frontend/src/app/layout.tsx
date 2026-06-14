@@ -18,6 +18,11 @@ export const metadata: Metadata = {
   title: "Edworld Co. — AI Career Platform",
   description: "Student career development, AI coaching, portfolio building, networking and job discovery.",
   manifest: "/manifest.json",
+  icons: {
+    icon: "/logo.png",
+    shortcut: "/logo.png",
+    apple: "/logo.png",
+  },
 };
 
 export const viewport: Viewport = {
