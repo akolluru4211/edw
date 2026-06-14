@@ -1,84 +1,53 @@
-import { initializeApp, cert } from 'firebase-admin/app';
+import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
-import os from 'os';
-import axios from 'axios';
 
 // Initialize Firebase Admin SDK
-const serviceAccountPath = path.join(process.cwd(), 'service-account.json');
-const firebaseToolsConfigPath = path.join(os.homedir(), '.config', 'configstore', 'firebase-tools.json');
+// Follows standard ADC lookup order:
+// 1. FIREBASE_SERVICE_ACCOUNT env var (explicit JSON, for CI/production)
+// 2. service-account.json file in cwd (local explicit key)
+// 3. ADC chain: GOOGLE_APPLICATION_CREDENTIALS env var,
+//    gcloud auth application-default login, or GCE/Cloud Run metadata server
+if (getApps().length === 0) {
+  const serviceAccountPath = path.join(process.cwd(), 'service-account.json');
 
-if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-  console.log('Initializing Firebase Admin SDK using FIREBASE_SERVICE_ACCOUNT environment variable...');
-  try {
-    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-    initializeApp({
-      credential: cert(serviceAccount),
-      projectId: serviceAccount.project_id || 'edworld-career-os-2026'
-    });
-  } catch (err: any) {
-    console.error('Failed to parse FIREBASE_SERVICE_ACCOUNT environment variable:', err.message);
-    initializeApp({
-      projectId: 'edworld-career-os-2026'
-    });
-  }
-} else if (fs.existsSync(serviceAccountPath)) {
-  console.log('Initializing Firebase Admin SDK using service-account.json key...');
-  const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
-  initializeApp({
-    credential: cert(serviceAccount),
-    projectId: 'edworld-career-os-2026'
-  });
-} else if (fs.existsSync(firebaseToolsConfigPath)) {
-  try {
-    const config = JSON.parse(fs.readFileSync(firebaseToolsConfigPath, 'utf8'));
-    const refreshToken = config?.tokens?.refresh_token;
-    if (refreshToken) {
-      console.log('Initializing Firebase Admin SDK using local Firebase CLI session credentials...');
-      
-      const tempAdcPath = path.join(process.cwd(), 'temp-adc.json');
-      fs.writeFileSync(tempAdcPath, JSON.stringify({
-        client_id: '563584335869-fgrhgmd47bqnekij5i8b5pr03ho849e6.apps.googleusercontent.com',
-        client_secret: 'j9iVZfS8kkCEFUPaAeJV0sAi',
-        refresh_token: refreshToken,
-        type: 'authorized_user'
-      }, null, 2));
-
-      process.env.GOOGLE_APPLICATION_CREDENTIALS = tempAdcPath;
-
+  if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+    console.log('Initializing Firebase Admin SDK using FIREBASE_SERVICE_ACCOUNT environment variable...');
+    try {
+      const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+      initializeApp({
+        credential: cert(serviceAccount),
+        projectId: serviceAccount.project_id || 'edworld-career-os-2026'
+      });
+    } catch (err: any) {
+      console.error('Failed to parse FIREBASE_SERVICE_ACCOUNT environment variable:', err.message);
       initializeApp({
         projectId: 'edworld-career-os-2026'
       });
-
-      const cleanup = () => {
-        try {
-          if (fs.existsSync(tempAdcPath)) {
-            fs.unlinkSync(tempAdcPath);
-            console.log('Cleaned up temporary Google credentials file.');
-          }
-        } catch {}
-      };
-
-      process.on('exit', cleanup);
-      process.on('SIGINT', () => { cleanup(); process.exit(); });
-      process.on('SIGTERM', () => { cleanup(); process.exit(); });
-    } else {
-      throw new Error('Refresh token not found in firebase-tools config');
     }
-  } catch (err: any) {
-    console.warn('Fallback to application default credentials: failed to load firebase-tools config:', err.message);
+  } else if (fs.existsSync(serviceAccountPath)) {
+    console.log('Initializing Firebase Admin SDK using service-account.json key...');
+    try {
+      const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
+      initializeApp({
+        credential: cert(serviceAccount),
+        projectId: 'edworld-career-os-2026'
+      });
+    } catch (err: any) {
+      console.error('Failed to parse service-account.json key:', err.message);
+      initializeApp({
+        projectId: 'edworld-career-os-2026'
+      });
+    }
+  } else {
+    console.log('Initializing Firebase Admin SDK using Application Default Credentials (ADC)...');
     initializeApp({
       projectId: 'edworld-career-os-2026'
     });
   }
-} else {
-  console.log('Initializing Firebase Admin SDK using application default credentials...');
-  initializeApp({
-    projectId: 'edworld-career-os-2026'
-  });
 }
 
 export const firestoreDb = getFirestore();
@@ -178,10 +147,20 @@ async function resolveRelations(collectionName: string, doc: any, include: any):
         }));
       }
       else if (relation === 'connections') {
-        const snap = await firestoreDb.collection('connections').get();
-        let list = snap.docs
-          .map(d => ({ id: d.id, ...d.data() } as any))
-          .filter(d => d.senderId === doc.id || d.receiverId === doc.id);
+        const snapSender = await firestoreDb.collection('connections').where('senderId', '==', doc.id).get();
+        const snapReceiver = await firestoreDb.collection('connections').where('receiverId', '==', doc.id).get();
+        const listSender = snapSender.docs.map(d => ({ id: d.id, ...d.data() }));
+        const listReceiver = snapReceiver.docs.map(d => ({ id: d.id, ...d.data() }));
+        
+        // Merge and deduplicate
+        const seen = new Set();
+        let list: any[] = [];
+        for (const item of [...listSender, ...listReceiver]) {
+          if (!seen.has(item.id)) {
+            seen.add(item.id);
+            list.push(item);
+          }
+        }
         const relArgs = include[relation];
         if (relArgs && typeof relArgs === 'object' && relArgs.where) {
           list = list.filter(item => matchFilter(item, relArgs.where));
@@ -425,8 +404,22 @@ class CollectionClient {
       return await resolveRelations(this.collectionName, { id: doc.id, ...doc.data() }, args?.include);
     }
 
-    const snapshot = await firestoreDb.collection(this.collectionName).get();
-    let list = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+    let query: any = firestoreDb.collection(this.collectionName);
+    
+    // Compile simple equality constraints for Firestore native filtering
+    for (const key of Object.keys(where)) {
+      const val = where[key];
+      if (val === undefined) continue;
+      
+      if (typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean') {
+        query = query.where(key, '==', val);
+      } else if (val === null) {
+        query = query.where(key, '==', null);
+      }
+    }
+
+    const snapshot = await query.get();
+    let list = snapshot.docs.map((d: any) => ({ id: d.id, ...d.data() }));
 
     if (args?.where) {
       list = list.filter(doc => matchFilter(doc, args.where));
@@ -437,8 +430,23 @@ class CollectionClient {
   }
 
   async findMany(args: any) {
-    const snapshot = await firestoreDb.collection(this.collectionName).get();
-    let list = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+    const where = args?.where || {};
+    let query: any = firestoreDb.collection(this.collectionName);
+    
+    // Compile simple equality constraints for Firestore native filtering
+    for (const key of Object.keys(where)) {
+      const val = where[key];
+      if (val === undefined) continue;
+      
+      if (typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean') {
+        query = query.where(key, '==', val);
+      } else if (val === null) {
+        query = query.where(key, '==', null);
+      }
+    }
+
+    const snapshot = await query.get();
+    let list = snapshot.docs.map((d: any) => ({ id: d.id, ...d.data() }));
 
     if (args?.where) {
       list = list.filter(doc => matchFilter(doc, args.where));
@@ -559,8 +567,23 @@ class CollectionClient {
   }
 
   async deleteMany(args: any) {
-    const snapshot = await firestoreDb.collection(this.collectionName).get();
-    let list = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+    const where = args?.where || {};
+    let query: any = firestoreDb.collection(this.collectionName);
+    
+    // Compile simple equality constraints for Firestore native filtering
+    for (const key of Object.keys(where)) {
+      const val = where[key];
+      if (val === undefined) continue;
+      
+      if (typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean') {
+        query = query.where(key, '==', val);
+      } else if (val === null) {
+        query = query.where(key, '==', null);
+      }
+    }
+
+    const snapshot = await query.get();
+    let list = snapshot.docs.map((d: any) => ({ id: d.id, ...d.data() }));
 
     if (args?.where) {
       list = list.filter(doc => matchFilter(doc, args.where));
