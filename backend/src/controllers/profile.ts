@@ -171,6 +171,8 @@ export const updateProfile = async (req: AuthenticatedRequest, res: Response) =>
 
   const {
     fullName,
+    email,
+    phoneNumber,
     headline,
     collegeName,
     degree,
@@ -208,10 +210,21 @@ export const updateProfile = async (req: AuthenticatedRequest, res: Response) =>
   }
 
   try {
-    if (fullName) {
+    if (fullName || email || phoneNumber) {
+      if (email && email !== req.user.email) {
+        const existing = await prisma.user.findUnique({ where: { email } })
+        if (existing) {
+          return res.status(400).json({ error: 'Email address is already in use by another account.' })
+        }
+      }
+
       await prisma.user.update({
         where: { id: req.user.id },
-        data: { fullName }
+        data: {
+          fullName,
+          email,
+          phoneNumber
+        }
       })
     }
 

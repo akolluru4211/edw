@@ -54,6 +54,8 @@ export default function ProfileHub() {
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [editForm, setEditForm] = useState({
     fullName: '',
+    email: '',
+    phoneNumber: '',
     bio: '',
     collegeName: '',
     degree: '',
@@ -90,6 +92,8 @@ export default function ProfileHub() {
     }
     setEditForm({
       fullName: user?.fullName || '',
+      email: user?.email || '',
+      phoneNumber: user?.phoneNumber || '',
       bio: profileData?.bio || '',
       collegeName: profileData?.collegeName || '',
       degree: profileData?.degree || '',
@@ -104,8 +108,11 @@ export default function ProfileHub() {
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      // 1. Update profile table fields
+      // 1. Update profile & user table fields
       await api.put('/profile', {
+        fullName: editForm.fullName,
+        email: editForm.email,
+        phoneNumber: editForm.phoneNumber,
         collegeName: editForm.collegeName,
         degree: editForm.degree,
         branch: editForm.branch,
@@ -114,16 +121,6 @@ export default function ProfileHub() {
         headline: editForm.headline,
         dob: editForm.dob || null
       });
-
-      // 2. Also update user name if edited
-      if (editForm.fullName !== user?.fullName) {
-        await api.put(`/admin/users/${user?.id}/role`, {
-          fullName: editForm.fullName
-        }).catch(async () => {
-          // Fallback if role update endpoint has different structure, attempt direct profile fields
-          console.warn('Regular role endpoint failed, utilizing profile details.');
-        });
-      }
 
       await refreshUser();
       await fetchProfileData();
@@ -237,6 +234,12 @@ export default function ProfileHub() {
                 <div className="flex items-center gap-1.5 text-slate-400 text-xs mt-1.5">
                   <Mail className="h-3.5 w-3.5 text-sky-500 shrink-0" />
                   <span>{user.email}</span>
+                </div>
+              )}
+              {user?.phoneNumber && (
+                <div className="flex items-center gap-1.5 text-slate-400 text-xs mt-1.5">
+                  <span className="text-sm shrink-0">📞</span>
+                  <span>{user.phoneNumber}</span>
                 </div>
               )}
               <div className="flex items-center gap-2 mt-2 flex-wrap">
@@ -419,7 +422,7 @@ export default function ProfileHub() {
               </div>
               
               {/* ID Card Wrapper */}
-              <div id="edworld-career-card" className="relative w-full max-w-[450px] aspect-[1.586/1] bg-gradient-to-br from-slate-900 via-slate-800 to-sky-950 text-white rounded-2xl p-4 flex flex-col justify-between overflow-hidden shadow-xl border border-slate-800 mx-auto">
+              <div id="edworld-career-card" className="relative w-full max-w-[450px] sm:aspect-[1.586/1] min-h-[220px] sm:min-h-0 bg-gradient-to-br from-slate-900 via-slate-800 to-sky-950 text-white rounded-2xl p-4 flex flex-col justify-between overflow-hidden shadow-xl border border-slate-800 mx-auto">
                 {/* Visual Glassmorphic glow circles */}
                 <div className="absolute -top-10 -right-10 w-28 h-28 bg-sky-500/20 rounded-full blur-xl pointer-events-none" />
                 <div className="absolute -bottom-10 -left-10 w-28 h-28 bg-blue-500/10 rounded-full blur-xl pointer-events-none" />
@@ -437,7 +440,7 @@ export default function ProfileHub() {
                       verified member
                     </span>
                     <span className="text-[7.5px] font-mono text-sky-400 font-bold tracking-wider mt-1 uppercase">
-                      ID: EDW-{user?.id?.slice(0, 8).toUpperCase() || 'MEMBER'}
+                      ID: {user?.memberId || `EDW-${user?.id?.slice(0, 8).toUpperCase() || 'MEMBER'}`}
                     </span>
                   </div>
                 </div>
@@ -663,26 +666,80 @@ export default function ProfileHub() {
             </div>
             
             <form onSubmit={handleSaveProfile} className="p-6 space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Full Name</label>
-                <input
-                  type="text"
-                  required
-                  value={editForm.fullName}
-                  onChange={e => setEditForm({ ...editForm, fullName: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-sky-500 focus:bg-white"
-                />
+              <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl border border-slate-150 mb-1 select-none">
+                <div className="relative h-14 w-14 rounded-xl bg-slate-200 overflow-hidden flex items-center justify-center shrink-0 border border-slate-300">
+                  {user?.profile?.avatarUrl ? (
+                    <img 
+                      src={`${BACKEND_URL}${user.profile.avatarUrl}`} 
+                      alt="Avatar" 
+                      className="h-full w-full object-cover" 
+                      crossOrigin="anonymous"
+                    />
+                  ) : (
+                    <span className="font-bold text-base text-slate-500">{initials}</span>
+                  )}
+                  {uploadingAvatar && (
+                    <div className="absolute inset-0 bg-slate-950/60 flex items-center justify-center">
+                      <Loader2 className="h-4 w-4 text-white animate-spin" />
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-slate-700">Profile Picture</h4>
+                  <p className="text-[10px] text-slate-450 mt-0.5">Change your public profile picture</p>
+                  <button
+                    type="button"
+                    onClick={() => avatarInputRef.current?.click()}
+                    className="mt-1.5 text-xs font-bold text-sky-600 hover:text-sky-700 hover:underline flex items-center gap-1.5 focus:outline-none"
+                  >
+                    <Camera className="h-3.5 w-3.5" /> Upload New Photo
+                  </button>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Full Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={editForm.fullName}
+                    onChange={e => setEditForm({ ...editForm, fullName: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-sky-500 focus:bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Email Address</label>
+                  <input
+                    type="email"
+                    required
+                    value={editForm.email}
+                    onChange={e => setEditForm({ ...editForm, email: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-sky-500 focus:bg-white"
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Career Headline</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Aspiring Full Stack Engineer | React & Node.js"
-                  value={editForm.headline}
-                  onChange={e => setEditForm({ ...editForm, headline: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-sky-500 focus:bg-white"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="sm:col-span-1">
+                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Phone Number</label>
+                  <input
+                    type="tel"
+                    value={editForm.phoneNumber}
+                    onChange={e => setEditForm({ ...editForm, phoneNumber: e.target.value })}
+                    placeholder="e.g. +91 98765 43210"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-sky-500 focus:bg-white"
+                  />
+                </div>
+                <div className="sm:col-span-1">
+                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Career Headline</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Aspiring Full Stack Engineer | React & Node.js"
+                    value={editForm.headline}
+                    onChange={e => setEditForm({ ...editForm, headline: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-sky-500 focus:bg-white"
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

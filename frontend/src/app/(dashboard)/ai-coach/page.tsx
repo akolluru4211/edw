@@ -5,7 +5,7 @@ import { api } from '@/lib/api';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Sparkles, Send, Plus, Trash2, MessageSquare,
-  TrendingUp, FileCheck2, Video, Bot, Clock, ChevronRight
+  TrendingUp, FileCheck2, Video, Bot, Clock, ChevronRight, X
 } from 'lucide-react';
 
 interface Msg {
@@ -101,6 +101,7 @@ export default function AICoach() {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showSidebar, setShowSidebar] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
 
   const fetchHistory = async () => {
@@ -119,10 +120,18 @@ export default function AICoach() {
 
   const selectChat = (id: string) => {
     const s = sessions.find(s => s.id === id);
-    if (s) { setActiveId(id); setMessages(s.messages); }
+    if (s) { 
+      setActiveId(id); 
+      setMessages(s.messages); 
+      setShowSidebar(false);
+    }
   };
 
-  const newChat = () => { setActiveId(null); setMessages([]); };
+  const newChat = () => { 
+    setActiveId(null); 
+    setMessages([]); 
+    setShowSidebar(false);
+  };
 
   const deleteSession = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -164,15 +173,31 @@ export default function AICoach() {
         <p className="text-slate-500 text-sm mt-1">Get personalized career advice, resume tips, and interview practice</p>
       </div>
 
-      <div className="flex-1 flex gap-5 min-h-0 overflow-hidden">
+      <div className="flex-1 flex gap-5 min-h-0 overflow-hidden relative">
+        {/* Backdrop for mobile */}
+        {showSidebar && (
+          <div 
+            onClick={() => setShowSidebar(false)}
+            className="fixed inset-0 z-20 bg-slate-900/40 backdrop-blur-xs md:hidden"
+          />
+        )}
+
         {/* History Sidebar */}
-        <div className="w-64 shrink-0 flex flex-col bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm shadow-slate-100/50">
-          <div className="p-4 border-b border-slate-100">
+        <div className={`fixed md:static inset-y-0 left-0 z-30 w-64 shrink-0 flex flex-col bg-white border-r md:border border-slate-200 md:rounded-2xl overflow-hidden shadow-xl md:shadow-sm shadow-slate-100/50 transition-transform duration-300 ease-in-out ${
+          showSidebar ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+        }`}>
+          <div className="p-4 border-b border-slate-100 flex items-center justify-between">
             <button
               onClick={newChat}
-              className="w-full flex items-center justify-center gap-2 py-3 bg-sky-600 hover:bg-sky-700 text-white text-sm font-bold rounded-xl transition-all shadow-[0_4px_0_0_#0284c7] active:translate-y-1 active:shadow-none"
+              className="flex-1 flex items-center justify-center gap-2 py-3 bg-sky-600 hover:bg-sky-700 text-white text-sm font-bold rounded-xl transition-all shadow-[0_4px_0_0_#0284c7] active:translate-y-1 active:shadow-none"
             >
               <Plus className="h-4 w-4" /> New Chat
+            </button>
+            <button 
+              onClick={() => setShowSidebar(false)}
+              className="md:hidden ml-2 p-2 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-50"
+            >
+              <X className="h-5 w-5" />
             </button>
           </div>
           <div className="flex-1 overflow-y-auto p-3 space-y-1">
@@ -216,16 +241,27 @@ export default function AICoach() {
         {/* Chat Workspace */}
         <div className="flex-1 flex flex-col bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm shadow-slate-100/50 min-w-0">
           {/* Header */}
-          <div className="h-16 border-b border-slate-100 flex items-center gap-3.5 px-6 shrink-0 bg-slate-50/30">
-            <AlexAvatar />
-            <div>
-              <div className="flex items-center gap-1.5">
-                <p className="font-bold text-slate-900 text-sm">Alex</p>
-                <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-1.5 py-0.2 rounded-md">Career Mentor</span>
+          <div className="h-16 border-b border-slate-100 flex items-center justify-between px-6 shrink-0 bg-slate-50/30">
+            <div className="flex items-center gap-3.5">
+              {/* Menu/History toggle button on mobile */}
+              <button
+                type="button"
+                onClick={() => setShowSidebar(!showSidebar)}
+                className="p-2 -ml-2 text-slate-500 hover:text-slate-700 md:hidden rounded-lg hover:bg-slate-100 focus:outline-none"
+                title="View History"
+              >
+                <MessageSquare className="h-5 w-5" />
+              </button>
+              <AlexAvatar />
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <p className="font-bold text-slate-900 text-sm">Alex</p>
+                  <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-1.5 py-0.2 rounded-md">Career Mentor</span>
+                </div>
+                <p className="text-[10px] text-emerald-500 font-bold uppercase tracking-wider flex items-center gap-1">
+                  <span className="h-1.5 w-1.5 bg-emerald-500 rounded-full animate-pulse" /> online
+                </p>
               </div>
-              <p className="text-[10px] text-emerald-500 font-bold uppercase tracking-wider flex items-center gap-1">
-                <span className="h-1.5 w-1.5 bg-emerald-500 rounded-full animate-pulse" /> online
-              </p>
             </div>
           </div>
 

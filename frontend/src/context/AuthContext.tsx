@@ -18,6 +18,7 @@ export interface User {
   id: string;
   email: string;
   fullName: string;
+  phoneNumber?: string;
   role: 'STUDENT' | 'ALUMNI' | 'MENTOR' | 'ADMIN';
   memberId?: string;
   publicKey?: string;

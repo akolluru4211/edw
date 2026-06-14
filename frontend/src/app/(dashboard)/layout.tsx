@@ -531,7 +531,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
       {/* ─── Floating Global Chatbot Bubble & Drawer ─── */}
       {!isAdmin && (
-        <div className="fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom,0px))] right-[calc(1.5rem+env(safe-area-inset-right,0px))] z-40 flex flex-col items-end">
+        <div className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:bottom-[calc(1.5rem+env(safe-area-inset-bottom,0px))] right-[calc(1rem+env(safe-area-inset-right,0px))] md:right-[calc(1.5rem+env(safe-area-inset-right,0px))] z-40 flex flex-col items-end">
           {chatOpen && (
             <div className="mb-4 w-96 max-w-[calc(100vw-2rem)] h-[460px] bg-white border border-slate-200 rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-scale-in">
               {/* Chat Header */}
