@@ -1,0 +1,1248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="EdWorld Co (EDCO) is a premium gamified social learning platform featuring instant messaging, structured courses, project showcase workspace, and smart connection discoveries.">
+  <title>EdWorld Co | Social Learning & Collaboration Platform</title>
+  
+  <!-- CSS Stylesheet -->
+  <link rel="stylesheet" href="index.css">
+  
+  <!-- FontAwesome Icons for modern aesthetic -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <!-- Google Font for premium typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;900&display=swap" rel="stylesheet">
+
+  <!-- html2canvas for ID Card PNG download -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
+</head>
+<body>
+
+  <!-- SPLASH SCREEN / LOADING INDICATOR -->
+  <div id="splash-screen">
+    <svg class="splash-logo" viewBox="0 0 500 500">
+      <rect width="500" height="500" rx="60" fill="#fff"/>
+      <text x="50%" y="210" font-family="'Outfit','Impact','Arial Black',sans-serif" font-weight="900" font-size="170" fill="#000" text-anchor="middle" letter-spacing="-5">ED</text>
+      <text x="50%" y="410" font-family="'Outfit','Impact','Arial Black',sans-serif" font-weight="900" font-size="170" fill="#000" text-anchor="middle" letter-spacing="-5">CO.</text>
+      <text x="50%" y="250" font-family="'Brush Script MT','Dancing Script',cursive" font-size="110" fill="#fff" stroke="#000" stroke-width="4" text-anchor="middle">world</text>
+    </svg>
+    <div class="splash-spinner"></div>
+    <span class="splash-text">Loading your workspace…</span>
+  </div>
+
+  <!-- HIDDEN PRINT WRAPPER (cloned ID card placed here for printing) -->
+  <div id="print-card-wrapper" style="display:none;"></div>
+
+  <!-- ==========================================
+       1. AUTHENTICATION / LOGIN OVERLAY
+       ========================================== -->
+  <div id="auth-overlay" class="auth-container">
+    <div class="auth-promo-panel">
+      <div class="auth-promo-header">
+        <svg class="auth-promo-logo" viewBox="0 0 500 500" style="width: 48px; height: 48px; border-radius: 8px; background: #ffffff; padding: 2px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+          <text x="50%" y="210" font-family="'Outfit', 'Impact', 'Arial Black', sans-serif" font-weight="900" font-size="170" fill="#000000" text-anchor="middle" letter-spacing="-5">ED</text>
+          <text x="50%" y="410" font-family="'Outfit', 'Impact', 'Arial Black', sans-serif" font-weight="900" font-size="170" fill="#000000" text-anchor="middle" letter-spacing="-5">CO.</text>
+          <text x="50%" y="250" font-family="'Brush Script MT', 'Dancing Script', cursive" font-size="110" fill="#ffffff" stroke="#000000" stroke-width="4" text-anchor="middle">world</text>
+        </svg>
+        <span class="auth-promo-brand">Edworld Co.</span>
+      </div>
+      <div class="auth-promo-content">
+        <div class="promo-badge"><i class="fas fa-sparkles"></i> AI-Powered Career Engine</div>
+        <h1 class="promo-title">Launch Your Career From Day One</h1>
+        <p class="promo-description">Create an ATS-proof portfolio, schedule simulated technical interviews, get direct AI mentoring, and connect with global opportunities.</p>
+      </div>
+      <div class="auth-promo-footer">
+        &copy; 2026 EdWorld Co. Empowering next-generation professionals.
+      </div>
+    </div>
+    <div class="auth-form-panel">
+      <div class="auth-card glass-panel">
+        <h2 class="auth-card-title">Welcome Back</h2>
+        <p class="auth-card-subtitle">Enter your credentials to access your professional workspace.</p>
+        
+        <form id="email-auth-form" class="auth-form">
+          <div class="form-group">
+            <label class="form-label" for="login-email">School Email Address</label>
+            <div class="input-icon-wrapper">
+              <i class="far fa-envelope input-icon"></i>
+              <input type="email" id="login-email" class="form-input has-icon" placeholder="name@university.edu" required autocomplete="email">
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
+              <label class="form-label" for="login-password">Password</label>
+              <a href="#" style="font-size:12px; font-weight:600; color:var(--primary);" onclick="return false;">Forgot Password?</a>
+            </div>
+            <div class="input-icon-wrapper">
+              <i class="fas fa-lock input-icon"></i>
+              <input type="password" id="login-password" class="form-input has-icon" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" value="mypassword123">
+            </div>
+          </div>
+          
+          <label class="checkbox-label" style="margin-bottom: 8px;">
+            <input type="checkbox" id="auth-consent" required checked>
+            <span>I consent to the Privacy Policy and terms of service.</span>
+          </label>
+          
+          <button type="submit" class="glow-btn" style="margin-top: 10px; width: 100%; border-radius: 12px; justify-content: center; height: 48px;">
+            Sign In to Edworld Co. &nbsp;<i class="fas fa-arrow-right"></i>
+          </button>
+        </form>
+        
+        <div class="divider">or continue with</div>
+        
+        <div class="social-buttons-row">
+          <button type="button" class="social-btn-icon" id="btn-login-google" title="Sign Up with Google">
+            <i class="fab fa-google" style="color: #ea4335;"></i> Google
+          </button>
+          <button type="button" class="social-btn-icon" id="btn-login-github" title="Sign Up with GitHub">
+            <i class="fab fa-github" style="color: #000000;"></i> GitHub
+          </button>
+        </div>
+        
+        <div style="margin-top: 24px; font-size:13px; color:var(--text-secondary); text-align:center;">
+          Don't have an account yet? <a href="#" style="font-weight:700;" id="btn-onboard-register-shortcut">Register Now</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       2. ONBOARDING PROFILE SETUP STEP WIZARD
+       ========================================== -->
+  <div id="onboarding-overlay" class="modal-overlay">
+    <div class="onboarding-card glass-panel">
+      <h2 style="font-size: 22px; margin-bottom: 8px; text-align: center;">Set Up Your Profile</h2>
+      <p style="color: var(--text-secondary); font-size: 13px; text-align: center; margin-bottom: 24px;">Let others know who you are so you can start connecting.</p>
+      
+      <div class="onboarding-steps">
+        <div class="step-node active" id="step-node-1">1</div>
+        <div class="step-node" id="step-node-2">2</div>
+        <div class="step-node" id="step-node-3">3</div>
+      </div>
+      
+      <!-- Step 1: Biography -->
+      <div class="onboarding-pane active" id="onboarding-step-1">
+        <div class="form-group" style="margin-bottom: 16px;">
+          <label class="form-label" for="onboard-name">Full Name</label>
+          <input type="text" id="onboard-name" class="form-input" placeholder="Alice Chen" required>
+        </div>
+        <div class="form-group" style="margin-bottom: 16px;">
+          <label class="form-label" for="onboard-headline">Headline / Professional Title</label>
+          <input type="text" id="onboard-headline" class="form-input" placeholder="e.g. Python Developer & Student" required>
+        </div>
+        <div class="form-group" style="margin-bottom: 16px;">
+          <label class="form-label" for="onboard-location">Location</label>
+          <input type="text" id="onboard-location" class="form-input" placeholder="e.g. San Francisco, CA">
+        </div>
+        <div class="form-group" style="margin-bottom: 24px;">
+          <label class="form-label" for="onboard-bio">Biography (About You)</label>
+          <textarea id="onboard-bio" class="form-input" style="height: 100px; resize: none;" placeholder="Tell the community about your goals, interests, and background..." maxlength="500"></textarea>
+        </div>
+        <div style="display: flex; justify-content: flex-end;">
+          <button type="button" class="glow-btn" id="btn-onboard-next-1">Next Step <i class="fas fa-arrow-right"></i></button>
+        </div>
+      </div>
+      
+      <!-- Step 2: Expertise & Skills Tags -->
+      <div class="onboarding-pane" id="onboarding-step-2">
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label class="form-label">Select or Type Skills (max 10)</label>
+          <div class="tags-input-container">
+            <div id="onboard-tags-badge-list" style="display: flex; flex-wrap: wrap; gap: 6px;"></div>
+            <input type="text" id="onboard-tag-input" class="tag-input-field" placeholder="Add skill (e.g. Python, CSS)...">
+          </div>
+        </div>
+        <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 24px;">Press Enter or comma to add a custom tag. Click tag to remove.</p>
+        
+        <div class="suggested-tags-pool" style="margin-bottom: 24px;">
+          <h4 style="font-size: 13px; margin-bottom: 8px;">Popular tags:</h4>
+          <div style="display: flex; flex-wrap: wrap; gap: 8px;" id="suggested-tags-container">
+            <span class="profile-skill-badge" style="cursor: pointer;">Python</span>
+            <span class="profile-skill-badge" style="cursor: pointer;">React</span>
+            <span class="profile-skill-badge" style="cursor: pointer;">CSS3</span>
+            <span class="profile-skill-badge" style="cursor: pointer;">HTML5</span>
+            <span class="profile-skill-badge" style="cursor: pointer;">JavaScript</span>
+            <span class="profile-skill-badge" style="cursor: pointer;">Django</span>
+            <span class="profile-skill-badge" style="cursor: pointer;">Docker</span>
+          </div>
+        </div>
+        
+        <div style="display: flex; justify-content: space-between;">
+          <button type="button" class="secondary-btn" id="btn-onboard-back-2"><i class="fas fa-arrow-left"></i> Back</button>
+          <button type="button" class="glow-btn" id="btn-onboard-next-2">Next Step <i class="fas fa-arrow-right"></i></button>
+        </div>
+      </div>
+      
+      <!-- Step 3: Links & Finish -->
+      <div class="onboarding-pane" id="onboarding-step-3">
+        <div class="form-group" style="margin-bottom: 16px;">
+          <label class="form-label" for="onboard-github"><i class="fab fa-github"></i> GitHub URL</label>
+          <input type="url" id="onboard-github" class="form-input" placeholder="https://github.com/username">
+        </div>
+        <div class="form-group" style="margin-bottom: 16px;">
+          <label class="form-label" for="onboard-linkedin"><i class="fab fa-linkedin"></i> LinkedIn URL</label>
+          <input type="url" id="onboard-linkedin" class="form-input" placeholder="https://linkedin.com/in/username">
+        </div>
+        <div class="form-group" style="margin-bottom: 24px;">
+          <label class="form-label" for="onboard-portfolio"><i class="fas fa-globe"></i> Portfolio Website</label>
+          <input type="url" id="onboard-portfolio" class="form-input" placeholder="https://myportfolio.com">
+        </div>
+        
+        <div style="display: flex; justify-content: space-between;">
+          <button type="button" class="secondary-btn" id="btn-onboard-back-3"><i class="fas fa-arrow-left"></i> Back</button>
+          <button type="button" class="glow-btn" id="btn-onboard-finish">Complete Profile <i class="fas fa-check"></i></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       3. MAIN CONTAINER GRID SYSTEM
+       ========================================== -->
+  <div id="app-layout">
+    
+    <!-- Sidebar Left Navigation -->
+    <aside class="sidebar">
+      <div>
+        <div class="brand-section">
+          <img src="logo.png" style="width: 32px; height: 32px; border-radius: 6px; object-fit: contain; flex-shrink: 0;" alt="Logo">
+          <span class="brand-name">Edworld Co.</span>
+        </div>
+        
+        <ul class="nav-links">
+          <li class="nav-item active" data-view="dashboard">
+            <a href="#dashboard"><i class="fas fa-chart-pie"></i> Dashboard</a>
+          </li>
+          <li class="nav-item" data-view="courses">
+            <a href="#courses"><i class="fas fa-graduation-cap"></i> Courses</a>
+          </li>
+          <li class="nav-item" data-view="projects">
+            <a href="#projects"><i class="fas fa-code"></i> Portfolio Workspace</a>
+          </li>
+          <li class="nav-item" data-view="connections">
+            <a href="#connections"><i class="fas fa-users"></i> Connections</a>
+          </li>
+          <li class="nav-item" data-view="messages">
+            <a href="#messages"><i class="fas fa-comments"></i> Messaging</a>
+          </li>
+          <li class="nav-item" data-view="jobs">
+            <a href="#jobs"><i class="fas fa-briefcase"></i> Jobs & Internships</a>
+          </li>
+          <li class="nav-item" data-view="points">
+            <a href="#points"><i class="fas fa-coins"></i> Points</a>
+          </li>
+          <li class="nav-item" data-view="plans">
+            <a href="#plans"><i class="fas fa-credit-card"></i> Plans</a>
+          </li>
+          <li class="nav-item" data-view="leaderboard">
+            <a href="#leaderboard"><i class="fas fa-trophy"></i> Leaderboards</a>
+          </li>
+          <li class="nav-item" data-view="admin">
+            <a href="#admin"><i class="fas fa-user-shield"></i> Admin Panel</a>
+          </li>
+          <li class="nav-item mobile-only-nav" data-view="profile" style="display: none;">
+            <a href="#profile"><img src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150" class="mobile-nav-avatar" id="mobile-nav-avatar" alt="Profile"> Profile</a>
+          </li>
+        </ul>
+      </div>
+      
+      <!-- Current User Profile summary at bottom -->
+      <div class="sidebar-user" id="sidebar-profile-shortcut">
+        <img src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150" class="sidebar-avatar" id="sidebar-avatar" alt="My avatar">
+        <div class="sidebar-info">
+          <span class="sidebar-username" id="sidebar-name">Loading...</span>
+          <span class="sidebar-points" id="sidebar-points-count"><i class="fas fa-fire"></i> 0 pts</span>
+        </div>
+      </div>
+    </aside>
+    
+    <!-- Right Content Area -->
+    <main class="main-area">
+      
+      <!-- Mobile Native Topbar Header -->
+      <div class="mobile-header-bar">
+        <div class="mobile-header-left" id="mobile-header-left-btn">
+          <img src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150" class="mobile-header-avatar" id="mobile-header-avatar" alt="Avatar">
+        </div>
+        <div class="mobile-header-title" id="mobile-header-title">EdWorld Co</div>
+        <div class="mobile-header-right">
+          <div class="notification-bell-container" id="mobile-notification-bell-btn">
+            <i class="fas fa-bell bell-icon">
+              <span class="notification-badge" id="notification-badge-mobile" style="display: none;">0</span>
+            </i>
+          </div>
+        </div>
+      </div>
+
+      <!-- Top header layout -->
+      <header class="topbar">
+        <div class="search-wrapper">
+          <i class="fas fa-search search-icon"></i>
+          <input type="search" class="search-input" id="global-search-input" placeholder="Search courses, users, and projects...">
+        </div>
+        
+        <div class="topbar-actions">
+          <!-- Notification drop center -->
+          <div class="notification-bell-container">
+            <i class="fas fa-bell bell-icon" id="btn-toggle-notifications">
+              <span class="notification-badge" id="notification-badge" style="display: none;">0</span>
+            </i>
+            
+            <div class="notification-dropdown glass-panel" id="dropdown-notifications">
+              <div class="dropdown-header">
+                <h3 style="font-size: 15px;">Notifications</h3>
+                <span style="font-size: 11px; color: var(--primary); cursor: pointer;" id="btn-mark-all-read">Mark all read</span>
+              </div>
+              <div class="dropdown-list" id="notifications-list-container">
+                <!-- Dynamic notification items populated via js -->
+              </div>
+              <div class="dropdown-footer" id="btn-clear-notifications">
+                Clear all notifications
+              </div>
+            </div>
+          </div>
+          
+          <!-- User Profile Pill -->
+          <div class="user-pill" id="user-pill-shortcut">
+            <img src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150" class="user-pill-avatar" id="topbar-avatar" alt="Avatar">
+            <span class="user-pill-name" id="topbar-name">Loading...</span>
+          </div>
+        </div>
+      </header>
+      
+      <!-- Dyn viewport contents -->
+      <div class="content-viewport">
+        
+        <!-- SECTION: DASHBOARD -->
+        <section id="view-dashboard" class="view-section active">
+          <div class="dashboard-grid">
+            <div class="glass-panel dashboard-hero">
+              <div class="hero-welcome">
+                <h1>Welcome Back, <span id="dash-welcome-name">Developer</span>!</h1>
+                <p style="color: var(--text-secondary); margin-bottom: 16px;">Ready to expand your skillset today? Complete daily streaks to gain bonus multipliers!</p>
+                <button class="glow-btn" onclick="window.location.hash='#courses'">Continue Learning <i class="fas fa-play"></i></button>
+              </div>
+              <div class="hero-stats">
+                <div class="glass-panel hero-stat-card">
+                  <div class="hero-stat-value" id="dash-stat-points">0</div>
+                  <div class="hero-stat-label">Total Points</div>
+                </div>
+                <div class="glass-panel hero-stat-card">
+                  <div class="hero-stat-value" id="dash-stat-streak">1</div>
+                  <div class="hero-stat-label">Day Streak 🔥</div>
+                </div>
+              </div>
+            </div>
+            
+            <div class="metrics-panel">
+              <div class="metric-summary-grid">
+                <div class="glass-panel summary-card primary">
+                  <div class="summary-icon"><i class="fas fa-graduation-cap"></i></div>
+                  <div class="summary-value" id="dash-summary-courses">0/3</div>
+                  <div style="font-size: 11px; color: var(--text-muted);">Completed Lessons</div>
+                </div>
+                <div class="glass-panel summary-card secondary">
+                  <div class="summary-icon"><i class="fas fa-users"></i></div>
+                  <div class="summary-value" id="dash-summary-connections">0</div>
+                  <div style="font-size: 11px; color: var(--text-muted);">Active Connections</div>
+                </div>
+                <div class="glass-panel summary-card success">
+                  <div class="summary-icon"><i class="fas fa-trophy"></i></div>
+                  <div class="summary-value" id="dash-summary-badges">0</div>
+                  <div style="font-size: 11px; color: var(--text-muted);">Unlocked Badges</div>
+                </div>
+              </div>
+              
+              <!-- Weekly Activity Mock Chart -->
+              <div class="glass-panel activity-chart-panel">
+                <h3 style="font-size: 16px;">Weekly Learning Activity</h3>
+                <div class="activity-bar-chart" id="dashboard-activity-chart">
+                  <!-- JS builds bars -->
+                </div>
+              </div>
+            </div>
+<div id="id-card-container" class="glass-panel" style="margin-top: 24px;"></div>
+            
+            <div class="dashboard-sidebar">
+              <!-- Streak and Gamification -->
+              <div class="glass-panel dashboard-block" style="border-color: var(--primary-hover);">
+                <h3 class="block-title"><i class="fas fa-bolt" style="color: var(--warning);"></i> Streak Multipliers</h3>
+                <p style="font-size: 12.5px; color: var(--text-secondary); margin-bottom: 12px;">Complete 1 lesson daily. Earning streak multipliers scales up points up to 2x!</p>
+                <div style="display: flex; gap: 8px; justify-content: space-between;">
+                  <span style="font-size: 11px; background: rgba(255,255,255,0.05); padding: 4px 8px; border-radius: 4px;" id="dash-streak-day-1">Mon: ✅</span>
+                  <span style="font-size: 11px; background: rgba(255,255,255,0.05); padding: 4px 8px; border-radius: 4px;" id="dash-streak-day-2">Tue: ❌</span>
+                  <span style="font-size: 11px; background: rgba(255,255,255,0.05); padding: 4px 8px; border-radius: 4px;" id="dash-streak-day-3">Wed: ❌</span>
+                  <span style="font-size: 11px; background: rgba(255,255,255,0.05); padding: 4px 8px; border-radius: 4px;" id="dash-streak-day-4">Thu: ❌</span>
+                  <span style="font-size: 11px; background: rgba(255,255,255,0.05); padding: 4px 8px; border-radius: 4px;" id="dash-streak-day-5">Fri: ❌</span>
+                </div>
+              </div>
+              
+              <!-- Connections suggestions short list -->
+              <div class="glass-panel dashboard-block">
+                <h3 class="block-title">Suggested Connections <span style="font-size: 11px; cursor: pointer; color: var(--primary);" onclick="window.location.hash='#connections'">View all</span></h3>
+                <div class="suggested-users-list" id="dash-suggestions-container">
+                  <!-- dynamic suggestions -->
+                </div>
+              </div>
+            </div>
+            
+            <!-- Events & Gigs Dashboard Panel -->
+            <div class="glass-panel dashboard-block events-gigs-dashboard-panel" style="grid-column: 1 / -1; margin-top: 24px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h3 style="font-size: 18px; margin: 0;"><i class="fas fa-calendar-alt" style="color: var(--primary);"></i> Featured Events & Freelance Gigs</h3>
+                <button class="secondary-btn" style="padding: 4px 12px; font-size: 12px;" onclick="window.location.hash='#events-gigs'">Explore All &nbsp;<i class="fas fa-arrow-right"></i></button>
+              </div>
+              <div class="events-gigs-rect-grid" id="dashboard-events-gigs-container">
+                <!-- Dynamic rectangular cards loaded via app.js -->
+              </div>
+            </div>
+          </div>
+        </section>
+        
+        <!-- SECTION: COURSES -->
+        <section id="view-courses" class="view-section">
+          <!-- Course index grid -->
+          <div class="courses-container" id="courses-index-panel">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <h1 style="font-size: 28px;">Structured Learning Paths</h1>
+                <p style="color: var(--text-secondary);">Expand your backend and frontend skillset with interactive graded lessons.</p>
+              </div>
+            </div>
+            
+            <div class="courses-grid" id="courses-grid-container">
+              <!-- populated in app.js -->
+            </div>
+          </div>
+          
+          <!-- Detailed course dynamic lesson viewer (initially hidden) -->
+          <div class="glass-panel" id="courses-viewer-panel" style="display: none; padding: 24px; min-height: 100%;">
+            <div style="margin-bottom: 16px; display: flex; align-items: center; gap: 12px;">
+              <button class="secondary-btn" id="btn-close-course-viewer" style="padding: 6px 16px;"><i class="fas fa-arrow-left"></i> Back to Courses</button>
+              <h2 id="viewer-course-title" style="font-size: 20px;">Course Viewer</h2>
+            </div>
+            
+            <div class="course-viewer">
+              <aside class="glass-panel course-viewer-sidebar">
+                <h3 style="font-size: 14px; border-bottom: 1px solid var(--border-card); padding-bottom: 8px;">Curriculum Path</h3>
+                <div class="course-modules-list" id="viewer-curriculum-container">
+                  <!-- dynamic modules and lessons -->
+                </div>
+              </aside>
+              
+              <div class="course-viewer-content">
+                <!-- Video player mockup -->
+                <div class="lesson-video-placeholder">
+                  <div class="video-play-btn" id="btn-mock-play-video"><i class="fas fa-play"></i></div>
+                  <video id="lesson-video-player" src="" width="100%" height="100%" style="display: none; object-fit: cover; border-radius: var(--border-radius);" controls></video>
+                  <div style="position: absolute; bottom: 16px; font-size: 12px; color: var(--text-muted);" id="video-placeholder-status">Lesson Video Preview (Click to Play)</div>
+                </div>
+                
+                <article class="glass-panel lesson-article">
+                  <h1 id="lesson-detail-title">Lesson Title</h1>
+                  <div id="lesson-detail-body">
+                    <!-- Lesson HTML copy text -->
+                  </div>
+                  
+                  <div class="lesson-article-resources">
+                    <h4 style="font-size: 13px; margin-bottom: 10px;"><i class="fas fa-download"></i> Resources & Guides:</h4>
+                    <div style="display: flex; gap: 12px;" id="lesson-resources-list">
+                      <!-- resources links -->
+                    </div>
+                  </div>
+                </article>
+                
+                <!-- Interactive quiz container -->
+                <div class="glass-panel quiz-card" id="lesson-quiz-box">
+                  <h3 style="font-size: 15px; margin-bottom: 4px;"><i class="fas fa-question-circle" style="color: var(--primary);"></i> Lesson Quiz</h3>
+                  <p style="color: var(--text-muted); font-size: 12px; margin-bottom: 16px;">Pass this check with a correct answer to complete this lesson and earn +25 points!</p>
+                  
+                  <div class="quiz-question" id="quiz-question-text">Quiz Question</div>
+                  <ul class="quiz-options-list" id="quiz-options-container">
+                    <!-- Options list -->
+                  </ul>
+                  
+                  <div class="quiz-status-feedback" id="quiz-feedback-banner" style="display: none;"></div>
+                  
+                  <div style="display: flex; gap: 12px;">
+                    <button class="glow-btn" id="btn-submit-quiz">Submit Answer</button>
+                    <button class="secondary-btn" id="btn-next-lesson" style="display: none;">Next Lesson <i class="fas fa-chevron-right"></i></button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+        
+        <!-- SECTION: PROJECTS WORKSPACE -->
+        <section id="view-projects" class="view-section">
+          <div class="projects-header-row">
+            <div>
+              <h1 style="font-size: 28px;">Portfolio Project Showcase</h1>
+              <p style="color: var(--text-secondary);">Browse community-led developments and showcase your repositories and live URLs.</p>
+            </div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <button class="glow-btn" style="background: #F5A623; color: #1A1A1A; border: none; font-weight: 700;" onclick="window.location.hash='#portfolio-view'"><i class="fas fa-eye"></i> View Custom Portfolio Website</button>
+              <button class="glow-btn" id="btn-trigger-upload-project"><i class="fas fa-plus"></i> Share Project</button>
+            </div>
+          </div>
+          
+          <div class="projects-grid" id="projects-grid-container">
+            <!-- populated via js -->
+          </div>
+        </section>
+        
+        <!-- SECTION: CONNECTIONS DISCOVERY -->
+        <section id="view-connections" class="view-section">
+          <div class="discovery-layout">
+            <div>
+              <h1 style="font-size: 28px;">Smart Connection Discovery</h1>
+              <p style="color: var(--text-secondary);">Find peers, instructors, and mentors based on mutual interests and matching algorithms.</p>
+            </div>
+            
+            <!-- Filters bar -->
+            <div class="glass-panel filter-bar">
+              <div class="filter-group">
+                <label class="form-label" style="font-size: 12px; font-weight: 700;">Role:</label>
+                <select class="filter-select" id="filter-connect-role">
+                  <option value="all">All Roles</option>
+                  <option value="student">Student</option>
+                  <option value="mentor">Mentor</option>
+                  <option value="instructor">Instructor</option>
+                </select>
+                
+                <label class="form-label" style="font-size: 12px; font-weight: 700; margin-left: 12px;">Expertise:</label>
+                <select class="filter-select" id="filter-connect-skill">
+                  <option value="all">All Skills</option>
+                  <option value="Python">Python</option>
+                  <option value="React">React</option>
+                  <option value="CSS3">CSS3</option>
+                  <option value="JavaScript">JavaScript</option>
+                </select>
+              </div>
+              
+              <div class="filter-group">
+                <span style="font-size: 12px; color: var(--text-muted);" id="connect-results-count">Showing results...</span>
+              </div>
+            </div>
+            
+            <!-- Carousel suggested mentors / scores > 70 -->
+            <div>
+              <h3 class="discovery-section-title"><i class="fas fa-sparkles" style="color: var(--primary);"></i> Recommended For You</h3>
+              <div class="carousel-container">
+                <div class="carousel-track" id="connect-suggestions-track">
+                  <!-- dynamic high-score suggestions carousel cards -->
+                </div>
+              </div>
+            </div>
+            
+            <!-- Mutual connections / Active list -->
+            <div>
+              <div class="tab-navigation">
+                <span class="tab-btn active" id="btn-tab-active-connections">Active Connections</span>
+                <span class="tab-btn" id="btn-tab-pending-connections">Pending Requests</span>
+                <span class="tab-btn" id="btn-tab-blocked-users">Blocked</span>
+              </div>
+              
+              <div class="connections-tabs-content">
+                <div class="connections-grid" id="connections-list-grid">
+                  <!-- populated in js -->
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+        
+        <!-- SECTION: MESSAGING -->
+        <section id="view-messages" class="view-section" style="height: calc(100vh - 140px);">
+          <div class="glass-panel chat-container">
+            <!-- Left panel conversation list -->
+            <div class="chat-sidebar">
+              <div class="chat-search-box">
+                <input type="text" class="chat-search-input" id="chat-sidebar-search" placeholder="Search chats...">
+              </div>
+              <div class="conversation-list" id="chat-conversation-list">
+                <!-- dynamic chats -->
+              </div>
+            </div>
+            
+            <!-- Right active panel chat thread -->
+            <div class="chat-main-pane">
+              <!-- Placeholder screen if no chat selected -->
+              <div class="chat-placeholder" id="chat-empty-state">
+                <i class="far fa-comments chat-placeholder-icon"></i>
+                <p>Select a connection to start chatting instantly</p>
+              </div>
+              
+              <!-- Actual chat pane -->
+              <div id="chat-active-panel" style="display: none; flex-direction: column; height: 100%;">
+                <div class="chat-header">
+                  <div class="chat-header-user">
+                    <img src="" class="sidebar-avatar" id="chat-header-avatar" alt="Avatar">
+                    <div>
+                      <div class="chat-header-name" id="chat-header-name">Alice Chen</div>
+                      <div class="chat-header-status" id="chat-header-status">Online</div>
+                    </div>
+                  </div>
+                  <div class="chat-header-actions">
+                    <i class="fas fa-trash" style="font-size: 15px;" id="btn-delete-conversation" title="Delete Chat Log"></i>
+                  </div>
+                </div>
+                
+                <div class="chat-thread" id="chat-messages-thread">
+                  <!-- Message bubbles -->
+                </div>
+                
+                <!-- Typing indicator -->
+                <div class="typing-indicator" id="chat-typing-indicator" style="visibility: hidden;">
+                  <span id="chat-typing-text">Alice is typing</span>
+                  <div class="typing-dot"></div>
+                  <div class="typing-dot"></div>
+                  <div class="typing-dot"></div>
+                </div>
+                
+                <div class="chat-input-area">
+                  <button class="chat-action-btn" id="btn-toggle-emoji" title="Reactions Drawer"><i class="far fa-smile"></i></button>
+                  <button class="chat-action-btn" id="btn-chat-file-upload" title="Simulate File Attachment"><i class="fas fa-paperclip"></i></button>
+                  
+                  <div class="chat-input-wrapper">
+                    <textarea class="chat-textarea" id="chat-message-input" placeholder="Type a message..." rows="1"></textarea>
+                  </div>
+                  
+                  <button class="glow-btn" id="btn-send-message" style="padding: 8px 16px; border-radius: 20px;">Send <i class="fas fa-paper-plane" style="font-size: 12px;"></i></button>
+                  
+                  <!-- Reaction drawer popup overlay -->
+                  <div class="emoji-drawer glass-panel" id="chat-emoji-drawer">
+                    <span class="emoji-item">😊</span>
+                    <span class="emoji-item">🚀</span>
+                    <span class="emoji-item">🔥</span>
+                    <span class="emoji-item">👏</span>
+                    <span class="emoji-item">🧠</span>
+                    <span class="emoji-item">👍</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+        
+        <!-- SECTION: PROFILE -->
+        <section id="view-profile" class="view-section">
+          <!-- Profile Banner Card -->
+          <div class="glass-panel profile-header-card">
+            <div class="profile-header-left">
+              <div class="profile-avatar-wrapper">
+                <img src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150" class="profile-avatar-big" id="profile-card-avatar" alt="Avatar">
+                <div class="avatar-edit-overlay" id="btn-trigger-avatar-change" title="Change Avatar Image">
+                  <i class="fas fa-camera"></i>
+                </div>
+              </div>
+              
+              <div class="profile-main-info">
+                <h1 class="profile-fullname" id="profile-card-name">Student Name</h1>
+                <span class="profile-headline" id="profile-card-headline">Python Developer</span>
+                <div class="profile-location">
+                  <i class="fas fa-map-marker-alt"></i> <span id="profile-card-location">Global Village</span>
+                </div>
+              </div>
+            </div>
+            
+            <button class="glow-btn" id="btn-trigger-edit-profile"><i class="fas fa-edit"></i> Edit Profile</button>
+          </div>
+          
+          <div class="profile-grid">
+            <div class="glass-panel profile-about-card">
+              <h3 style="font-size: 16px; margin-bottom: 12px;">About Me</h3>
+              <p class="profile-about-text" id="profile-card-bio">Biography has not been added yet.</p>
+              
+              <h3 style="font-size: 16px; margin-bottom: 12px;">Skills & Expertise</h3>
+              <div class="profile-skills" id="profile-card-skills-container">
+                <!-- tags -->
+              </div>
+              
+              <h3 style="font-size: 16px; margin-bottom: 12px; margin-top: 24px;">Social Connections</h3>
+              <div class="profile-socials">
+                <div class="social-link-row">
+                  <i class="fab fa-github"></i> <a href="#" target="_blank" id="profile-social-github">GitHub Profile</a>
+                </div>
+                <div class="social-link-row">
+                  <i class="fab fa-linkedin"></i> <a href="#" target="_blank" id="profile-social-linkedin">LinkedIn Profile</a>
+                </div>
+                <div class="social-link-row">
+                  <i class="fas fa-globe"></i> <a href="#" target="_blank" id="profile-social-portfolio">Portfolio Site</a>
+                </div>
+              </div>
+            </div>
+            
+            <div class="profile-main-tabs">
+              <div class="tab-navigation">
+                <span class="tab-btn active" id="btn-profile-tab-badges">Badges & Accomplishments</span>
+                <span class="tab-btn" id="btn-profile-tab-projects">Showcase Projects</span>
+              </div>
+              
+              <div class="connections-tabs-content">
+                <!-- Badges pane -->
+                <div class="tab-pane active" id="profile-pane-badges">
+                  <div class="badges-grid" id="profile-badges-container">
+                    <!-- Badges filled dynamically -->
+                  </div>
+                </div>
+                
+                <!-- User Projects pane -->
+                <div class="tab-pane" id="profile-pane-projects">
+                  <div class="projects-grid" id="profile-projects-container">
+                    <!-- User own projects populated dynamically -->
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Mobile Navigation Directory Hub (visible on mobile only) -->
+            <div class="glass-panel profile-mobile-directory-card" style="display: none;">
+              <h3 style="font-size: 16px; margin-bottom: 16px;"><i class="fas fa-th-large" style="color: var(--primary);"></i> Feature Hub & Settings</h3>
+              <div class="mobile-directory-list">
+                <a href="#connections" class="directory-row">
+                  <div class="directory-icon-wrapper"><i class="fas fa-users"></i></div>
+                  <div class="directory-info">
+                    <div class="directory-title">Connections</div>
+                    <div class="directory-desc">Find peers and professional mentors</div>
+                  </div>
+                  <i class="fas fa-chevron-right directory-arrow"></i>
+                </a>
+                <a href="#jobs" class="directory-row">
+                  <div class="directory-icon-wrapper"><i class="fas fa-briefcase"></i></div>
+                  <div class="directory-info">
+                    <div class="directory-title">Jobs & Internships</div>
+                    <div class="directory-desc">Explore active career opportunities</div>
+                  </div>
+                  <i class="fas fa-chevron-right directory-arrow"></i>
+                </a>
+                <a href="#points" class="directory-row">
+                  <div class="directory-icon-wrapper"><i class="fas fa-coins"></i></div>
+                  <div class="directory-info">
+                    <div class="directory-title">Points & Rewards</div>
+                    <div class="directory-desc">Withdraw points via Bank or UPI</div>
+                  </div>
+                  <i class="fas fa-chevron-right directory-arrow"></i>
+                </a>
+                <a href="#plans" class="directory-row">
+                  <div class="directory-icon-wrapper"><i class="fas fa-credit-card"></i></div>
+                  <div class="directory-info">
+                    <div class="directory-title">Premium Plans</div>
+                    <div class="directory-desc">Upgrade your account after July 1st</div>
+                  </div>
+                  <i class="fas fa-chevron-right directory-arrow"></i>
+                </a>
+                <a href="#leaderboard" class="directory-row">
+                  <div class="directory-icon-wrapper"><i class="fas fa-trophy"></i></div>
+                  <div class="directory-info">
+                    <div class="directory-title">Leaderboards</div>
+                    <div class="directory-desc">Compete with global learners</div>
+                  </div>
+                  <i class="fas fa-chevron-right directory-arrow"></i>
+                </a>
+                <a href="#admin" class="directory-row admin-only-row" id="profile-mobile-admin-btn" style="display: none;">
+                  <div class="directory-icon-wrapper"><i class="fas fa-user-shield"></i></div>
+                  <div class="directory-info">
+                    <div class="directory-title">Admin Panel</div>
+                    <div class="directory-desc">Manage users, withdrawals, and logs</div>
+                  </div>
+                  <i class="fas fa-chevron-right directory-arrow"></i>
+                </a>
+                <a href="#" class="directory-row" id="profile-mobile-ai-settings-btn" onclick="window.__edcoShowAiSettingsModal(); return false;">
+                  <div class="directory-icon-wrapper" style="background: rgba(99, 102, 241, 0.15); color: var(--primary);"><i class="fas fa-robot"></i></div>
+                  <div class="directory-info">
+                    <div class="directory-title">OpenRouter AI Settings</div>
+                    <div class="directory-desc">Configure your API Key and Model</div>
+                  </div>
+                  <i class="fas fa-chevron-right directory-arrow"></i>
+                </a>
+              </div>
+            </div>
+
+          </div>
+        </section>
+        
+        <!-- SECTION: JOBS & INTERNSHIPS -->
+        <section id="view-jobs" class="view-section">
+
+        <!-- SECTION: POINTS PAGE -->
+        <section id="view-points" class="view-section">
+          <div class="glass-panel points-card" style="max-width: 600px; margin: auto; padding: 24px;">
+            <h2 style="font-size: 28px; margin-bottom: 16px;">Your Points</h2>
+            <p style="font-size: 16px; margin-bottom: 12px;">Total Points: <span id="points-total" style="font-weight:600;">0</span></p>
+            <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 24px;">Earn points for sign‑up (+5), daily login (+1), and completing activities.</p>
+            <button class="glow-btn" id="btn-points-withdraw" disabled>Withdraw 200 points</button>
+          </div>
+        </section>
+          <div class="jobs-header-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+            <div>
+              <h1 style="font-size: 28px;">Careers & Internships Portal</h1>
+              <p style="color: var(--text-secondary);">Browse active job postings or chat with our RAG AI assistant to find matching roles.</p>
+            </div>
+            <button class="glow-btn" id="btn-trigger-post-job"><i class="fas fa-plus"></i> Post Opportunity</button>
+          </div>
+
+          <div class="jobs-layout">
+            <!-- Left Panel: Job Listings -->
+            <div class="glass-panel jobs-list-panel">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h3 style="font-size: 16px; margin: 0;">Active Opportunities</h3>
+                <span style="font-size: 12px; color: var(--text-muted);" id="jobs-count">Loading...</span>
+              </div>
+              
+              <div class="jobs-search-bar" style="margin-bottom: 16px;">
+                <div class="input-icon-wrapper">
+                  <i class="fas fa-search input-icon"></i>
+                  <input type="text" id="jobs-search-input" class="form-input has-icon" placeholder="Search by title, company, skills..." style="border-radius: 12px; height: 40px;">
+                </div>
+              </div>
+
+              <div class="jobs-grid-container" id="jobs-grid-container">
+                <!-- Dynamically populated job cards -->
+              </div>
+            </div>
+
+            <!-- Right Panel: RAG AI Agent Chat -->
+            <div class="glass-panel jobs-ai-panel">
+              <div class="ai-header">
+                <div style="background: var(--primary-light); color: var(--primary); width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px;">
+                  <i class="fas fa-robot"></i>
+                </div>
+                <div>
+                  <h3 style="font-size: 15px; margin: 0;">EdWorld RAG Job Assistant</h3>
+                  <span style="font-size: 11px; color: var(--text-secondary);">Ask me anything about requirements, skills, or matching jobs!</span>
+                </div>
+              </div>
+
+              <!-- Chat messages container -->
+              <div id="ai-chat-thread">
+                <!-- Default AI Welcome message -->
+                <div class="message-bubble-row other">
+                  <div style="background: var(--primary-light); width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; color: var(--primary); margin-right: 8px; flex-shrink: 0;"><i class="fas fa-robot"></i></div>
+                  <div class="message-bubble-content-wrapper">
+                    <div class="message-bubble" style="background: var(--bg-hover); color: var(--text-main);">
+                      Hi! I am the EdWorld Careers Assistant. I can search our job catalog using a built-in Retrieval-Augmented Generation (RAG) system. 
+                      <br><br>
+                      Try asking me:
+                      <ul style="margin: 8px 0 0 16px; padding: 0;">
+                        <li>"What Python internships are available?"</li>
+                        <li>"List remote software engineering roles."</li>
+                        <li>"Which opportunities match React skills?"</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- AI Chat input area -->
+              <div class="ai-chat-input-area">
+                <div class="chat-input-wrapper" style="flex: 1; margin: 0;">
+                  <textarea class="chat-textarea" id="ai-chat-input" placeholder="Ask about jobs, requirements, skills..." rows="1" style="height: 36px; border-radius: 12px;"></textarea>
+                </div>
+                <button class="glow-btn" id="btn-send-ai-chat" style="padding: 0 16px; height: 36px; border-radius: 12px; justify-content: center;"><i class="fas fa-paper-plane"></i></button>
+              </div>
+            </div>
+          </div>
+        </section>
+        
+        <!-- SECTION: LEADERBOARD -->
+        <section id="view-leaderboard" class="view-section">
+          <div style="margin-bottom: 24px;">
+            <h1 style="font-size: 28px;">Rankings & Leaderboards</h1>
+            <p style="color: var(--text-secondary);">Earn points by reading lessons, solving quizzes, and contributing to projects.</p>
+          </div>
+          
+          <div class="leaderboard-tabs">
+            <button class="glow-btn" id="btn-leaderboard-global">Weekly Global Leaderboard</button>
+            <button class="secondary-btn" id="btn-leaderboard-python">Python Skills Board</button>
+          </div>
+          
+          <div class="glass-panel leaderboard-table-panel">
+            <table class="leaderboard-table">
+              <thead>
+                <tr>
+                  <th>Rank</th>
+                  <th>Student Name</th>
+                  <th>Title</th>
+                  <th>Points</th>
+                </tr>
+              </thead>
+              <tbody id="leaderboard-rows-container">
+                <!-- leaderboard rows loaded via js -->
+              </tbody>
+            </table>
+          </div>
+        </section>
+        
+        <!-- SECTION: SEARCH RESULTS -->
+        <section id="view-search" class="view-section">
+          <h1 style="font-size: 28px; margin-bottom: 12px;">Universal Search Results</h1>
+          <div class="search-results-header" id="search-query-header">Search results for "query"...</div>
+          
+          <div class="search-results-section" style="margin-top: 24px;">
+            <h3 style="font-size: 16px;"><i class="fas fa-graduation-cap" style="color: var(--primary);"></i> Courses found</h3>
+            <div class="courses-grid" id="search-courses-container"></div>
+            
+            <h3 style="font-size: 16px; margin-top: 24px;"><i class="fas fa-code" style="color: var(--secondary);"></i> Projects found</h3>
+            <div class="projects-grid" id="search-projects-container"></div>
+            
+            <h3 style="font-size: 16px; margin-top: 24px;"><i class="fas fa-users" style="color: var(--success);"></i> Users found</h3>
+            <div class="connections-grid" id="search-users-container"></div>
+          </div>
+        </section>
+
+        <!-- SECTION: EVENTS & GIGS (HIDDEN FROM MENU) -->
+        <section id="view-events-gigs" class="view-section" style="display: none;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 16px;">
+            <div>
+              <h1 style="font-size: 28px;">Events & Freelance Gigs</h1>
+              <p style="color: var(--text-secondary);">Register for industry events or apply to active freelance contract gigs to earn points and money.</p>
+            </div>
+            <div class="tab-navigation" style="margin: 0;">
+              <span class="tab-btn active" id="btn-eg-all">All Listings</span>
+              <span class="tab-btn" id="btn-eg-events">Events Only</span>
+              <span class="tab-btn" id="btn-eg-gigs">Gigs Only</span>
+            </div>
+          </div>
+          <div class="events-gigs-detailed-grid" id="events-gigs-list-container">
+            <!-- Populated dynamically via app.js -->
+          </div>
+        </section>
+
+        <!-- SECTION: PLANS & PRICING -->
+        <section id="view-plans" class="view-section" style="display: none;">
+          <div style="text-align: center; margin-bottom: 32px;">
+            <h1 style="font-size: 32px; margin-bottom: 8px;">Upgrade Your Professional Workspace</h1>
+            <p style="color: var(--text-secondary); max-width: 600px; margin: auto;">Choose the plan that fits your career goals. Gain access to structured courses, custom portfolio reviews, and RAG AI job matching.</p>
+            
+            <!-- Paywall Active Simulator for testing -->
+            <div style="margin-top: 16px; display: inline-flex; align-items: center; gap: 8px; background: rgba(2, 132, 199, 0.08); padding: 8px 16px; border-radius: 20px; border: 1px solid rgba(2, 132, 199, 0.15);">
+              <input type="checkbox" id="test-paywall-toggle" style="cursor: pointer;">
+              <label for="test-paywall-toggle" style="font-size: 13px; font-weight: 600; cursor: pointer; color: var(--primary);">Simulate Post-July 1st Paywall Gate</label>
+            </div>
+          </div>
+          
+          <div class="plans-grid">
+            <!-- Starter -->
+            <div class="glass-panel plan-card" style="display: flex; flex-direction: column; justify-content: space-between;">
+              <div>
+                <div class="plan-header" style="margin-bottom: 20px;">
+                  <h3 class="plan-name" style="font-size: 20px; margin-bottom: 8px;">Starter Plan</h3>
+                  <div class="plan-price" style="font-size: 36px; font-weight: 800;">$9<span class="plan-period" style="font-size:14px; font-weight:400; color:var(--text-muted);">/mo</span></div>
+                </div>
+                <div class="plan-features" style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px;">
+                  <div class="feature-item"><i class="fas fa-check" style="color: var(--success); margin-right: 8px;"></i> Access to Python basics course</div>
+                  <div class="feature-item"><i class="fas fa-check" style="color: var(--success); margin-right: 8px;"></i> Standard profile portfolio page</div>
+                  <div class="feature-item"><i class="fas fa-check" style="color: var(--success); margin-right: 8px;"></i> Apply to 5 jobs / month</div>
+                  <div class="feature-item"><i class="fas fa-times" style="color: var(--accent); margin-right: 8px;"></i> No coding project showcase uploads</div>
+                  <div class="feature-item"><i class="fas fa-times" style="color: var(--accent); margin-right: 8px;"></i> No RAG AI Career Search Assistant</div>
+                </div>
+              </div>
+              <button class="glow-btn pay-now-btn" style="width:100%; border-radius:12px; justify-content: center; height: 44px;" data-plan="Starter" data-price="9">Pay Now</button>
+            </div>
+            
+            <!-- Pro -->
+            <div class="glass-panel plan-card popular" style="border: 2px solid var(--primary); position: relative; display: flex; flex-direction: column; justify-content: space-between;">
+              <div class="popular-badge" style="background: var(--primary); color: #fff; font-size: 11px; padding: 4px 8px; border-radius: 4px; position: absolute; top: -12px; right: 16px; font-weight: 700;"><i class="fas fa-star"></i> Recommended</div>
+              <div>
+                <div class="plan-header" style="margin-bottom: 20px;">
+                  <h3 class="plan-name" style="font-size: 20px; margin-bottom: 8px;">Pro Plan</h3>
+                  <div class="plan-price" style="font-size: 36px; font-weight: 800;">$29<span class="plan-period" style="font-size:14px; font-weight:400; color:var(--text-muted);">/mo</span></div>
+                </div>
+                <div class="plan-features" style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px;">
+                  <div class="feature-item"><i class="fas fa-check" style="color: var(--success); margin-right: 8px;"></i> Access to all courses</div>
+                  <div class="feature-item"><i class="fas fa-check" style="color: var(--success); margin-right: 8px;"></i> Custom yellow graphic portfolio</div>
+                  <div class="feature-item"><i class="fas fa-check" style="color: var(--success); margin-right: 8px;"></i> Unlimited showcase project uploads</div>
+                  <div class="feature-item"><i class="fas fa-check" style="color: var(--success); margin-right: 8px;"></i> Direct chat with peers & mentors</div>
+                  <div class="feature-item"><i class="fas fa-check" style="color: var(--success); margin-right: 8px;"></i> 50 applications / month & basic AI</div>
+                </div>
+              </div>
+              <button class="glow-btn pay-now-btn" style="width:100%; border-radius:12px; justify-content: center; height: 44px;" data-plan="Pro" data-price="29">Pay Now</button>
+            </div>
+            
+            <!-- Elite -->
+            <div class="glass-panel plan-card" style="display: flex; flex-direction: column; justify-content: space-between;">
+              <div>
+                <div class="plan-header" style="margin-bottom: 20px;">
+                  <h3 class="plan-name" style="font-size: 20px; margin-bottom: 8px;">Elite Plan</h3>
+                  <div class="plan-price" style="font-size: 36px; font-weight: 800;">$79<span class="plan-period" style="font-size:14px; font-weight:400; color:var(--text-muted);">/mo</span></div>
+                </div>
+                <div class="plan-features" style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px;">
+                  <div class="feature-item"><i class="fas fa-check" style="color: var(--success); margin-right: 8px;"></i> All Pro Plan features included</div>
+                  <div class="feature-item"><i class="fas fa-check" style="color: var(--success); margin-right: 8px;"></i> Unlimited RAG AI matching</div>
+                  <div class="feature-item"><i class="fas fa-check" style="color: var(--success); margin-right: 8px;"></i> Weekly 1-on-1 code reviews</div>
+                  <div class="feature-item"><i class="fas fa-check" style="color: var(--success); margin-right: 8px;"></i> Verified badges & blockchain certs</div>
+                  <div class="feature-item"><i class="fas fa-check" style="color: var(--success); margin-right: 8px;"></i> Featured profile placement</div>
+                </div>
+              </div>
+              <button class="glow-btn pay-now-btn" style="width:100%; border-radius:12px; justify-content: center; height: 44px;" data-plan="Elite" data-price="79">Pay Now</button>
+            </div>
+          </div>
+          
+          <!-- Status info -->
+          <div id="user-current-plan-banner" style="max-width: 600px; margin: 32px auto 0 auto; text-align: center; font-size: 14px; padding: 12px; border-radius: 8px;"></div>
+        </section>
+
+        <!-- SECTION: CAMPUS AMBASSADOR FORM (HIDDEN FROM MENU) -->
+        <section id="view-ambassador" class="view-section" style="display: none;">
+          <div class="glass-panel form-card-container" style="max-width: 700px; margin: auto; padding: 32px;">
+            <h2 style="font-size: 28px; margin-bottom: 8px; text-align: center;"><i class="fas fa-award" style="color: var(--warning);"></i> Campus Ambassador Program</h2>
+            <p style="color: var(--text-secondary); text-align: center; margin-bottom: 24px; font-size: 14px;">Apply to represent Edworld Co. at your college. Organize events, build community, and earn exclusive rewards & cash incentives!</p>
+            
+            <form id="ambassador-application-form">
+              <!-- Personal Details -->
+              <h3 style="font-size: 16px; margin-bottom: 16px; padding-bottom: 6px; border-bottom: 1px solid var(--border-card); color: var(--primary);">Personal Details</h3>
+              
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                <div class="form-group">
+                  <label class="form-label" for="amb-name">Full Name</label>
+                  <input type="text" id="amb-name" class="form-input" placeholder="Alice Chen" required>
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="amb-email">Email Address</label>
+                  <input type="email" id="amb-email" class="form-input" placeholder="alice@university.edu" required>
+                </div>
+              </div>
+              
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                <div class="form-group">
+                  <label class="form-label" for="amb-phone">Phone Number</label>
+                  <input type="tel" id="amb-phone" class="form-input" placeholder="+1 (555) 019-2834" required>
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="amb-whatsapp">WhatsApp Number</label>
+                  <input type="tel" id="amb-whatsapp" class="form-input" placeholder="+91 7993936047" required>
+                </div>
+              </div>
+              
+              <div class="form-group" style="margin-bottom: 24px;">
+                <label class="form-label" for="amb-linkedin">LinkedIn / GitHub Profile URL</label>
+                <input type="url" id="amb-linkedin" class="form-input" placeholder="https://linkedin.com/in/username" required>
+              </div>
+              
+              <!-- College Details -->
+              <h3 style="font-size: 16px; margin-bottom: 16px; padding-bottom: 6px; border-bottom: 1px solid var(--border-card); color: var(--primary);">College Details</h3>
+              
+              <div class="form-group" style="margin-bottom: 16px;">
+                <label class="form-label" for="amb-college">College / University Name</label>
+                <input type="text" id="amb-college" class="form-input" placeholder="GITAM University" required>
+              </div>
+              
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                <div class="form-group">
+                  <label class="form-label" for="amb-course">Course / Major</label>
+                  <input type="text" id="amb-course" class="form-input" placeholder="B.Tech Computer Science" required>
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="amb-year">Year of Study</label>
+                  <select id="amb-year" class="filter-select" style="width: 100%; height: 42px; border-radius: 8px; background: var(--bg-dark); color: var(--text-main); border: 1px solid var(--border-card); padding: 0 12px;" required>
+                    <option value="1">1st Year</option>
+                    <option value="2">2nd Year</option>
+                    <option value="3">3rd Year</option>
+                    <option value="4">4th Year</option>
+                    <option value="5">Post-Graduate</option>
+                  </select>
+                </div>
+              </div>
+              
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px;">
+                <div class="form-group">
+                  <label class="form-label" for="amb-roll">Student Roll Number / ID</label>
+                  <input type="text" id="amb-roll" class="form-input" placeholder="1219030042" required>
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="amb-city">College City / State</label>
+                  <input type="text" id="amb-city" class="form-input" placeholder="Visakhapatnam, AP" required>
+                </div>
+              </div>
+              
+              <button type="submit" class="glow-btn" style="width: 100%; justify-content: center; height: 48px; border-radius: 12px; font-size: 16px;">
+                Submit Application & Verify on WhatsApp &nbsp;<i class="fab fa-whatsapp"></i>
+              </button>
+            </form>
+          </div>
+        </section>
+
+        <!-- SECTION: ADMIN PANEL -->
+        <section id="view-admin" class="view-section" style="display: none;">
+          <div style="margin-bottom: 24px;">
+            <h1 style="font-size: 28px;"><i class="fas fa-user-shield"></i> Admin Panel & Database Monitor</h1>
+            <p style="color: var(--text-secondary);">Track user actions, approve withdrawal requests, check ambassador forms, and review active payments.</p>
+          </div>
+          
+          <div class="tab-navigation">
+            <span class="tab-btn active" id="btn-admin-tab-users">Users</span>
+            <span class="tab-btn" id="btn-admin-tab-payments">Payments</span>
+            <span class="tab-btn" id="btn-admin-tab-ambassadors">Ambassadors</span>
+            <span class="tab-btn" id="btn-admin-tab-withdrawals">Withdrawals</span>
+            <span class="tab-btn" id="btn-admin-tab-logs">Activity Logs</span>
+            <span class="tab-btn" id="btn-admin-tab-ai">AI Config</span>
+          </div>
+          
+          <!-- Admin contents -->
+          <div class="admin-tab-content" style="margin-top: 24px;">
+            <!-- Users Pane -->
+            <div class="tab-pane active" id="admin-pane-users">
+              <div class="glass-panel table-panel" style="overflow-x: auto;">
+                <table class="leaderboard-table">
+                  <thead>
+                    <tr>
+                      <th>User ID</th>
+                      <th>Name</th>
+                      <th>Role</th>
+                      <th>Points</th>
+                      <th>Active Plan</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="admin-users-rows"></tbody>
+                </table>
+              </div>
+            </div>
+            
+            <!-- Payments Pane -->
+            <div class="tab-pane" id="admin-pane-payments" style="display: none;">
+              <div class="glass-panel table-panel" style="overflow-x: auto;">
+                <table class="leaderboard-table">
+                  <thead>
+                    <tr>
+                      <th>User</th>
+                      <th>Plan Purchased</th>
+                      <th>Amount Paid</th>
+                      <th>Purchase Date</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody id="admin-payments-rows"></tbody>
+                </table>
+              </div>
+            </div>
+            
+            <!-- Ambassadors Pane -->
+            <div class="tab-pane" id="admin-pane-ambassadors" style="display: none;">
+              <div class="glass-panel table-panel" style="overflow-x: auto;">
+                <table class="leaderboard-table">
+                  <thead>
+                    <tr>
+                      <th>Applicant Name</th>
+                      <th>Contact Info</th>
+                      <th>College & Course</th>
+                      <th>Roll No & City</th>
+                      <th>Submitted Date</th>
+                    </tr>
+                  </thead>
+                  <tbody id="admin-ambassadors-rows"></tbody>
+                </table>
+              </div>
+            </div>
+            
+            <!-- Withdrawals Pane -->
+            <div class="tab-pane" id="admin-pane-withdrawals" style="display: none;">
+              <div class="glass-panel table-panel" style="overflow-x: auto;">
+                <table class="leaderboard-table">
+                  <thead>
+                    <tr>
+                      <th>User</th>
+                      <th>Points</th>
+                      <th>Payout Type</th>
+                      <th>Details</th>
+                      <th>Date</th>
+                      <th>Status</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody id="admin-withdrawals-rows"></tbody>
+                </table>
+              </div>
+            </div>
+            
+            <!-- Logs Pane -->
+            <div class="tab-pane" id="admin-pane-logs" style="display: none;">
+              <div style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="font-size: 14px; margin: 0;">User Actions Log (Real-time Audit Trail)</h3>
+                <span style="font-size: 11px; color: var(--accent); cursor: pointer; font-weight: 600;" id="btn-admin-clear-logs">Clear Logs from DB</span>
+              </div>
+              <div class="glass-panel log-console-panel" id="admin-logs-console" style="height: 400px; overflow-y: auto; background: #0f172a; border-radius: 8px; font-family: monospace; font-size: 12.5px; padding: 16px; border: 1px solid var(--border-card);">
+                <!-- Dynamic log lines -->
+              </div>
+            </div>
+            
+            <!-- AI Settings Pane -->
+            <div class="tab-pane" id="admin-pane-ai" style="display: none;">
+              <div class="glass-panel" style="padding: 24px; max-width: 600px; margin: auto;">
+                <h3 style="font-size: 18px; margin-bottom: 8px;"><i class="fas fa-robot" style="color: var(--primary);"></i> OpenRouter API Configuration</h3>
+                <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 24px;">Configure the API key and active model to enable dynamic AI Mentoring responses and RAG Career Search.</p>
+                
+                <div class="form-group" style="margin-bottom: 16px;">
+                  <label class="form-label" for="admin-openrouter-key">OpenRouter API Key</label>
+                  <div style="position: relative;">
+                    <input type="password" id="admin-openrouter-key" class="form-input" style="padding-right: 40px;" placeholder="sk-or-v1-...">
+                    <i class="fas fa-eye-slash" id="toggle-admin-key-visibility" style="position: absolute; right: 12px; top: 12px; cursor: pointer; color: var(--text-muted);"></i>
+                  </div>
+                </div>
+                
+                <div class="form-group" style="margin-bottom: 24px;">
+                  <label class="form-label" for="admin-openrouter-model">Active AI Model</label>
+                  <select id="admin-openrouter-model" class="form-input">
+                    <option value="meta-llama/llama-3-8b-instruct:free" selected>Meta: Llama 3 8B Instruct (Free) - Recommended</option>
+                    <option value="google/gemini-2.5-flash">Google: Gemini 2.5 Flash</option>
+                    <option value="deepseek/deepseek-chat">DeepSeek: DeepSeek Chat (V3)</option>
+                    <option value="meta-llama/llama-3-70b-instruct">Meta: Llama 3 70B Instruct</option>
+                  </select>
+                </div>
+                
+                <button class="glow-btn" id="btn-admin-save-ai-config" style="width: 100%; justify-content: center; height: 40px; border-radius: 8px;">Save AI Configuration</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- SECTION: CUSTOM USER PORTFOLIO SITE (RANDY FAHMI STYLED) -->
+        <section id="view-portfolio-view" class="view-section portfolio-theme-randy" style="padding: 0; min-height: 100vh; overflow-y: auto; display: none;">
+          <div style="padding: 16px; background: #1A1A1A; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #F5A623; position: sticky; top: 0; z-index: 100;">
+            <span style="color: #FFFFFF; font-weight: 700; font-size: 14px;"><i class="fas fa-eye" style="color: #F5A623;"></i> Live Generated Portfolio Preview</span>
+            <button class="secondary-btn" style="padding: 6px 16px; font-size: 12px; background: #F5A623; color: #1A1A1A; border: none; border-radius: 4px; font-weight: 600;" onclick="window.location.hash='#projects'"><i class="fas fa-arrow-left"></i> Back to Workspace</button>
+          </div>
+          
+          <div id="portfolio-container-inner" style="background-color: #E3E4E6; color: #1A1A1A; font-family: 'Outfit', sans-serif;">
+            <!-- Filled dynamically in app.js -->
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- ==========================================
+       4. GLOBAL GENERAL MODAL DIALOGS
+       ========================================== -->
+       
+  <!-- GENERAL MODAL WRAPPER -->
+  <div id="general-modal" class="modal-wrapper">
+    <div class="modal-content-panel glass-panel" id="general-modal-content-area">
+      <!-- loaded dynamically: forms, project details, certificates -->
+    </div>
+  </div>
+  
+  <!-- TOAST NOTIFICATION CONTAINER -->
+  <div id="toast-container"></div>
+
+  <!-- ==========================================
+       5. JAVASCRIPT LOGIC SCRIPTS
+       ========================================== -->
+  <!-- Firebase App & Firestore SDKs (Compat v10) -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-messaging-compat.js"></script>
+  <!-- Core Logic Engine -->
+  <script src="app.js"></script>
+</body>
+</html>
