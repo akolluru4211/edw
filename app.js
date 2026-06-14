@@ -1016,6 +1016,13 @@
             location: "San Francisco, CA",
             bio: "Mastering development stack on EdWorld Co.",
             skills: [],
+            college: "GITAM University",
+            degree: "B.Tech",
+            branch: "Computer Science & Engineering",
+            graduationYear: 2026,
+            github: "",
+            linkedin: "",
+            portfolio: "",
             oauth_providers: firebaseUser.providerData.map(p => p.providerId) || ["email"],
             email_verified: firebaseUser.emailVerified || true,
             provider_ids: { email: firebaseUser.uid },
@@ -1090,27 +1097,58 @@
     document.getElementById('btn-login-google').onclick = () => loginWithProvider('google');
     document.getElementById('btn-login-github').onclick = () => loginWithProvider('github');
     
+    let authMode = 'login';
+    const shortcutBtn = document.getElementById('btn-onboard-register-shortcut');
+    const authTitle = document.querySelector('.auth-card-title');
+    const authSubtitle = document.querySelector('.auth-card-subtitle');
+    const submitBtn = document.querySelector('#email-auth-form button[type="submit"]');
+
+    if (shortcutBtn) {
+      shortcutBtn.onclick = (e) => {
+        e.preventDefault();
+        if (authMode === 'login') {
+          authMode = 'register';
+          if (authTitle) authTitle.textContent = "Create Account";
+          if (authSubtitle) authSubtitle.textContent = "Sign up for a new account to launch your career.";
+          if (submitBtn) submitBtn.innerHTML = `Register & Get Started &nbsp;<i class="fas fa-user-plus"></i>`;
+          shortcutBtn.textContent = "Sign In";
+          shortcutBtn.parentElement.firstChild.textContent = "Already have an account? ";
+        } else {
+          authMode = 'login';
+          if (authTitle) authTitle.textContent = "Welcome Back";
+          if (authSubtitle) authSubtitle.textContent = "Enter your credentials to access your professional workspace.";
+          if (submitBtn) submitBtn.innerHTML = `Sign In to Edworld Co. &nbsp;<i class="fas fa-arrow-right"></i>`;
+          shortcutBtn.textContent = "Register Now";
+          shortcutBtn.parentElement.firstChild.textContent = "Don't have an account yet? ";
+        }
+      };
+    }
+
     document.getElementById('email-auth-form').onsubmit = async (e) => {
       e.preventDefault();
       const email = document.getElementById('login-email').value.trim();
       const password = document.getElementById('login-password').value;
       
-      try {
-        await auth.signInWithEmailAndPassword(email, password);
-        showToast("Signed in successfully!", "success");
-      } catch (err) {
-        if (err.code === 'auth/user-not-found') {
-          try {
-            await auth.createUserWithEmailAndPassword(email, password);
-            showToast("Account created! Set up your profile.", "success");
-          } catch (signUpErr) {
-            showToast(signUpErr.message, "danger");
-          }
-        } else {
-          try {
-            await auth.createUserWithEmailAndPassword(email, password);
-            showToast("Account created! Set up your profile.", "success");
-          } catch (fallbackErr) {
+      if (authMode === 'register') {
+        try {
+          await auth.createUserWithEmailAndPassword(email, password);
+          showToast("Account created! Set up your profile.", "success");
+        } catch (signUpErr) {
+          showToast(signUpErr.message, "danger");
+        }
+      } else {
+        try {
+          await auth.signInWithEmailAndPassword(email, password);
+          showToast("Signed in successfully!", "success");
+        } catch (err) {
+          if (err.code === 'auth/user-not-found') {
+            try {
+              await auth.createUserWithEmailAndPassword(email, password);
+              showToast("Account created! Set up your profile.", "success");
+            } catch (signUpErr) {
+              showToast(signUpErr.message, "danger");
+            }
+          } else {
             showToast(err.message, "danger");
           }
         }
@@ -1149,6 +1187,11 @@
     document.getElementById('onboard-location').value = state.currentUser.location || '';
     document.getElementById('onboard-bio').value = state.currentUser.bio || '';
     
+    document.getElementById('onboard-college').value = state.currentUser.college || '';
+    document.getElementById('onboard-degree').value = state.currentUser.degree || '';
+    document.getElementById('onboard-branch').value = state.currentUser.branch || '';
+    document.getElementById('onboard-grad-year').value = state.currentUser.graduationYear || '2026';
+    
     onboardSkills = [];
     renderOnboardTags();
 
@@ -1156,14 +1199,25 @@
     document.getElementById('btn-onboard-next-1').onclick = () => {
       const name = document.getElementById('onboard-name').value.trim();
       const headline = document.getElementById('onboard-headline').value.trim();
-      if (!name || !headline) {
-        showToast("Please enter your name and headline title.", "warning");
+      const college = document.getElementById('onboard-college').value.trim();
+      const degree = document.getElementById('onboard-degree').value.trim();
+      const branch = document.getElementById('onboard-branch').value.trim();
+      const gradYear = document.getElementById('onboard-grad-year').value.trim();
+      
+      if (!name || !headline || !college || !degree || !branch || !gradYear) {
+        showToast("Please fill in all details including academic parameters.", "warning");
         return;
       }
+      
       state.currentUser.name = name;
       state.currentUser.headline = headline;
       state.currentUser.location = document.getElementById('onboard-location').value.trim() || "Global Village";
       state.currentUser.bio = document.getElementById('onboard-bio').value.trim() || "Hi, I'm new here!";
+      
+      state.currentUser.college = college;
+      state.currentUser.degree = degree;
+      state.currentUser.branch = branch;
+      state.currentUser.graduationYear = Number(gradYear);
       
       togglePane(1, 2);
     };
@@ -3268,27 +3322,45 @@ Keep the response concise (2-4 sentences) and highly relevant to their profile o
     // Edit profile details modal form
     document.getElementById('btn-trigger-edit-profile').onclick = () => {
       const modalHtml = `
-        <div class="profile-edit-modal">
+        <div class="profile-edit-modal" style="max-height: 80vh; overflow-y: auto; padding-right: 8px;">
           <h2 style="font-size:22px; margin-bottom:16px;">Edit Profile Info</h2>
           <form id="profile-edit-form" class="auth-form">
-            <div class="form-group">
+            <div class="form-group" style="margin-bottom: 12px;">
               <label class="form-label" for="edit-name">Full Name</label>
               <input type="text" id="edit-name" class="form-input" value="${u.name}" required>
             </div>
-            <div class="form-group">
+            <div class="form-group" style="margin-bottom: 12px;">
+              <label class="form-label" for="edit-college">College / University</label>
+              <input type="text" id="edit-college" class="form-input" value="${u.college || ''}" required>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+              <div class="form-group">
+                <label class="form-label" for="edit-degree">Degree</label>
+                <input type="text" id="edit-degree" class="form-input" value="${u.degree || ''}" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="edit-branch">Branch / Field</label>
+                <input type="text" id="edit-branch" class="form-input" value="${u.branch || ''}" required>
+              </div>
+            </div>
+            <div class="form-group" style="margin-bottom: 12px;">
+              <label class="form-label" for="edit-grad-year">Graduation Year</label>
+              <input type="number" id="edit-grad-year" class="form-input" value="${u.graduationYear || '2026'}" required>
+            </div>
+            <div class="form-group" style="margin-bottom: 12px;">
               <label class="form-label" for="edit-headline">Headline</label>
               <input type="text" id="edit-headline" class="form-input" value="${u.headline}" required>
             </div>
-            <div class="form-group">
+            <div class="form-group" style="margin-bottom: 12px;">
               <label class="form-label" for="edit-location">Location</label>
               <input type="text" id="edit-location" class="form-input" value="${u.location}">
             </div>
-            <div class="form-group">
+            <div class="form-group" style="margin-bottom: 16px;">
               <label class="form-label" for="edit-bio">Biography (max 500 chars)</label>
               <textarea id="edit-bio" class="form-input" style="height:100px; resize:none;" maxlength="500">${u.bio}</textarea>
             </div>
             
-            <button type="submit" class="glow-btn" style="margin-top:10px; width:100%;">Save Profiles <i class="fas fa-save"></i></button>
+            <button type="submit" class="glow-btn" style="margin-top:10px; width:100%;">Save Profile <i class="fas fa-save"></i></button>
           </form>
         </div>
       `;
@@ -3299,6 +3371,10 @@ Keep the response concise (2-4 sentences) and highly relevant to their profile o
         e.preventDefault();
         
         state.currentUser.name = document.getElementById('edit-name').value.trim();
+        state.currentUser.college = document.getElementById('edit-college').value.trim();
+        state.currentUser.degree = document.getElementById('edit-degree').value.trim();
+        state.currentUser.branch = document.getElementById('edit-branch').value.trim();
+        state.currentUser.graduationYear = Number(document.getElementById('edit-grad-year').value);
         state.currentUser.headline = document.getElementById('edit-headline').value.trim();
         state.currentUser.location = document.getElementById('edit-location').value.trim() || "Global Village";
         state.currentUser.bio = document.getElementById('edit-bio').value.trim();
@@ -4752,10 +4828,10 @@ Sincerely,
     
     let tocCardsHtml = '';
     const defaultCards = [
-      { title: "Graphic Design", desc: "Digital Visual assets", icon: "fa-paint-brush" },
-      { title: "Photographer", desc: "Professional capturing", icon: "fa-camera" },
-      { title: "Videographer", desc: "Cinematic recording", icon: "fa-video" },
-      { title: "Video & Photo Editor", desc: "Post-production mastery", icon: "fa-film" }
+      { title: "Software Engineer", desc: "Full-stack web & app development", icon: "fa-laptop-code" },
+      { title: "System Architect", desc: "Database & API scaling solutions", icon: "fa-server" },
+      { title: "UI/UX Designer", desc: "Modern interfaces & typography", icon: "fa-paint-brush" },
+      { title: "AI Integrator", desc: "Connecting RAG & LLMs", icon: "fa-brain" }
     ];
     
     const ownProjects = state.projects.filter(p => p.creator_id === u.id).slice(0, 4);
@@ -4780,10 +4856,9 @@ Sincerely,
     });
     
     let experienceHtml = '';
-    const experiences = [
-      { role: "Senior Developer", company: "Edworld Workspace", period: "2025 - Present" },
-      { role: "Software Engineer Intern", company: "Local Tech Firm", period: "2024 - 2025" },
-      { role: "Full Stack Contributor", company: "Open Source Community", period: "2023 - 2024" }
+    const experiences = u.experiences && u.experiences.length > 0 ? u.experiences : [
+      { role: `${u.headline || 'Student Developer'}`, company: `${u.college || 'Edworld Workspace'}`, period: `${(u.graduationYear ? (u.graduationYear - 2) : 2024)} - Present` },
+      { role: "Software Engineer Intern", company: "Local Tech Firm", period: `${(u.graduationYear ? (u.graduationYear - 3) : 2023)} - ${(u.graduationYear ? (u.graduationYear - 2) : 2024)}` }
     ];
     // Right: Hello Bio, Skills, Experience
     const finalBio = state.customAiBio || introText;
@@ -4831,54 +4906,17 @@ Sincerely,
         <div style="display:grid; grid-template-columns: 0.8fr 1.2fr; gap:48px; padding:48px 0; border-bottom:3px solid #1A1A1A;">
           <!-- Left: Contacts & QR Code -->
           <div>
-            <div style="background:#FFF; border:3px solid #1A1A1A; border-radius:24px; padding:24px; box-shadow: 6px 6px 0px #1A1A1A; margin-bottom:24px;">
+            <div style="background:#FFF; border:3px solid #1A1A1A; border-radius:24px; padding:24px; box-shadow: 6px 6px 0px #1A1A1A; margin-bottom:24px; display:flex; flex-direction:column; align-items:center;">
               <div style="display:flex; justify-content:center; margin-bottom:16px;">
-                <!-- Styled mock QR Code SVG -->
-                <svg style="width:130px; height:130px; border:2px solid #1A1A1A; padding:6px; border-radius:8px;" viewBox="0 0 100 100">
-                  <rect x="0" y="0" width="100" height="100" fill="#FFF"/>
-                  <rect x="5" y="5" width="25" height="25" fill="#1A1A1A"/>
-                  <rect x="9" y="9" width="17" height="17" fill="#FFF"/>
-                  <rect x="13" y="13" width="9" height="9" fill="#1A1A1A"/>
-                  
-                  <rect x="70" y="5" width="25" height="25" fill="#1A1A1A"/>
-                  <rect x="74" y="9" width="17" height="17" fill="#FFF"/>
-                  <rect x="78" y="13" width="9" height="9" fill="#1A1A1A"/>
-                  
-                  <rect x="5" y="70" width="25" height="25" fill="#1A1A1A"/>
-                  <rect x="9" y="74" width="17" height="17" fill="#FFF"/>
-                  <rect x="13" y="78" width="9" height="9" fill="#1A1A1A"/>
-                  
-                  <rect x="40" y="10" width="5" height="15" fill="#1A1A1A"/>
-                  <rect x="50" y="5" width="10" height="5" fill="#1A1A1A"/>
-                  <rect x="45" y="30" width="15" height="5" fill="#1A1A1A"/>
-                  
-                  <rect x="10" y="40" width="15" height="5" fill="#1A1A1A"/>
-                  <rect x="5" y="50" width="5" height="10" fill="#1A1A1A"/>
-                  <rect x="25" y="45" width="5" height="15" fill="#1A1A1A"/>
-                  
-                  <rect x="40" y="40" width="20" height="20" fill="#1A1A1A"/>
-                  <rect x="45" y="45" width="10" height="10" fill="#FFF"/>
-                  
-                  <rect x="70" y="40" width="15" height="5" fill="#1A1A1A"/>
-                  <rect x="85" y="45" width="10" height="10" fill="#1A1A1A"/>
-                  <rect x="75" y="55" width="5" height="10" fill="#1A1A1A"/>
-                  
-                  <rect x="40" y="70" width="5" height="15" fill="#1A1A1A"/>
-                  <rect x="50" y="80" width="15" height="5" fill="#1A1A1A"/>
-                  <rect x="45" y="90" width="10" height="5" fill="#1A1A1A"/>
-                  
-                  <rect x="70" y="70" width="25" height="5" fill="#1A1A1A"/>
-                  <rect x="75" y="80" width="10" height="15" fill="#1A1A1A"/>
-                  <rect x="90" y="75" width="5" height="5" fill="#1A1A1A"/>
-                </svg>
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(u.portfolio || ('https://edworld.co/portfolio/' + u.id))}" style="width:130px; height:130px; border:2.5px solid #1A1A1A; padding:6px; border-radius:8px; background:#FFF;" crossorigin="anonymous" />
               </div>
               
-              <h4 style="font-size:16px; font-weight:800; border-bottom:1.5px solid #1A1A1A; padding-bottom:6px; margin:0 0 12px 0; text-transform:uppercase; text-align:center;">Let's Work Together</h4>
-              <div style="font-size:12.5px; display:flex; flex-direction:column; gap:8px;">
+              <h4 style="font-size:16px; font-weight:800; border-bottom:1.5px solid #1A1A1A; padding-bottom:6px; margin:0 0 12px 0; text-transform:uppercase; text-align:center; width:100%;">Let's Work Together</h4>
+              <div style="font-size:12.5px; display:flex; flex-direction:column; gap:8px; width:100%;">
                 <div><i class="far fa-envelope" style="color:#F5A623; width:16px;"></i> ${u.email || 'no-email@edworld.com'}</div>
-                <div><i class="fab fa-github" style="color:#F5A623; width:16px;"></i> github.com/${u.name.toLowerCase().replace(' ', '')}</div>
-                <div><i class="fab fa-linkedin" style="color:#F5A623; width:16px;"></i> linkedin.com/in/${u.name.toLowerCase().replace(' ', '')}</div>
-                <div><i class="fas fa-globe" style="color:#F5A623; width:16px;"></i> edworld.co/portfolio/${u.id.substring(0, 8)}</div>
+                <div><i class="fab fa-github" style="color:#F5A623; width:16px;"></i> ${u.github ? u.github.replace('https://', '') : 'github.com/' + u.name.toLowerCase().replace(/\s+/g, '')}</div>
+                <div><i class="fab fa-linkedin" style="color:#F5A623; width:16px;"></i> ${u.linkedin ? u.linkedin.replace('https://', '') : 'linkedin.com/in/' + u.name.toLowerCase().replace(/\s+/g, '')}</div>
+                <div><i class="fas fa-globe" style="color:#F5A623; width:16px;"></i> ${u.portfolio ? u.portfolio.replace('https://', '') : 'edworld.co/portfolio/' + u.id.substring(0, 8)}</div>
               </div>
             </div>
           </div>
@@ -4901,8 +4939,8 @@ Sincerely,
                 
                 <h4 style="font-size:14px; font-weight:800; border-bottom:1.5px solid #1A1A1A; padding-bottom:4px; margin:24px 0 12px 0; text-transform:uppercase; color:#1A1A1A;">Education</h4>
                 <div>
-                  <h5 style="margin:0; font-size:13px; font-weight:800; text-transform:uppercase; color:#1A1A1A;">Computer Science & Engineering</h5>
-                  <span style="font-size:11.5px; color:#555;">GITAM University &bull; 2022 - 2026</span>
+                  <h5 style="margin:0; font-size:13px; font-weight:800; text-transform:uppercase; color:#1A1A1A;">${u.degree || 'B.Tech'} ${u.branch || 'Computer Science & Engineering'}</h5>
+                  <span style="font-size:11.5px; color:#555;">${u.college || 'GITAM University'} &bull; ${(u.graduationYear ? (u.graduationYear - 4) : 2022)} - ${u.graduationYear || 2026}</span>
                 </div>
               </div>
               

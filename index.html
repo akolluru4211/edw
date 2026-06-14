@@ -129,11 +129,29 @@
         <div class="step-node" id="step-node-3">3</div>
       </div>
       
-      <!-- Step 1: Biography -->
+      <!-- Step 1: Biography & Academic Details -->
       <div class="onboarding-pane active" id="onboarding-step-1">
         <div class="form-group" style="margin-bottom: 16px;">
           <label class="form-label" for="onboard-name">Full Name</label>
           <input type="text" id="onboard-name" class="form-input" placeholder="Alice Chen" required>
+        </div>
+        <div class="form-group" style="margin-bottom: 16px;">
+          <label class="form-label" for="onboard-college">College / University</label>
+          <input type="text" id="onboard-college" class="form-input" placeholder="e.g. GITAM University" required>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+          <div class="form-group">
+            <label class="form-label" for="onboard-degree">Degree</label>
+            <input type="text" id="onboard-degree" class="form-input" placeholder="e.g. B.Tech" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="onboard-branch">Branch / Field</label>
+            <input type="text" id="onboard-branch" class="form-input" placeholder="e.g. CSE" required>
+          </div>
+        </div>
+        <div class="form-group" style="margin-bottom: 16px;">
+          <label class="form-label" for="onboard-grad-year">Graduation Year</label>
+          <input type="number" id="onboard-grad-year" class="form-input" placeholder="e.g. 2026" required>
         </div>
         <div class="form-group" style="margin-bottom: 16px;">
           <label class="form-label" for="onboard-headline">Headline / Professional Title</label>
@@ -145,7 +163,7 @@
         </div>
         <div class="form-group" style="margin-bottom: 24px;">
           <label class="form-label" for="onboard-bio">Biography (About You)</label>
-          <textarea id="onboard-bio" class="form-input" style="height: 100px; resize: none;" placeholder="Tell the community about your goals, interests, and background..." maxlength="500"></textarea>
+          <textarea id="onboard-bio" class="form-input" style="height: 80px; resize: none;" placeholder="Tell the community about your goals, interests, and background..." maxlength="500"></textarea>
         </div>
         <div style="display: flex; justify-content: flex-end;">
           <button type="button" class="glow-btn" id="btn-onboard-next-1">Next Step <i class="fas fa-arrow-right"></i></button>
