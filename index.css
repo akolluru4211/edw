@@ -483,7 +483,7 @@ button, input, textarea, select {
   height: 100%;
 }
 .view-section.active {
-  display: block;
+  display: block !important;
 }
 
 /* ==========================================
