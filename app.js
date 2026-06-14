@@ -1010,8 +1010,8 @@
           // User document does not exist, trigger onboarding wizard
           state.currentUser = {
             id: firebaseUser.uid,
-            name: firebaseUser.displayName || firebaseUser.email.split('@')[0],
-            email: firebaseUser.email,
+            name: firebaseUser.displayName || (firebaseUser.email ? firebaseUser.email.split('@')[0] : `User_${firebaseUser.uid.slice(0, 6)}`),
+            email: firebaseUser.email || `${firebaseUser.uid}@${(firebaseUser.providerData[0]?.providerId || 'oauth').split('.')[0]}.placeholder.com`,
             headline: "Student Learner",
             location: "San Francisco, CA",
             bio: "Mastering development stack on EdWorld Co.",
@@ -1124,6 +1124,8 @@
       provider = new firebase.auth.GoogleAuthProvider();
     } else if (providerName === 'github') {
       provider = new firebase.auth.GithubAuthProvider();
+      provider.addScope('read:user');
+      provider.addScope('user:email');
     } else {
       return;
     }
