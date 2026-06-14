@@ -1620,6 +1620,7 @@
           <div class="id-card-details">
             <h3 class="id-card-name">${state.currentUser.name}</h3>
             <p class="id-card-email"><i class="far fa-envelope"></i> ${state.currentUser.email || 'no-email@edworld.com'}</p>
+            ${state.currentUser.phoneNumber ? `<p class="id-card-email" style="margin-top: 2px;"><i class="fas fa-phone-alt" style="font-size: 10px; width: 14px;"></i> ${state.currentUser.phoneNumber}</p>` : ''}
             <div class="id-card-meta-row">
               <span class="id-card-role-tag">${(state.currentUser.role || 'student').toUpperCase()}</span>
               <span class="id-card-points-tag"><i class="fas fa-fire"></i> ${state.currentUser.points} pts</span>
@@ -3329,6 +3330,20 @@ Keep the response concise (2-4 sentences) and highly relevant to their profile o
               <label class="form-label" for="edit-name">Full Name</label>
               <input type="text" id="edit-name" class="form-input" value="${u.name}" required>
             </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+              <div class="form-group">
+                <label class="form-label" for="edit-email">Email Address</label>
+                <input type="email" id="edit-email" class="form-input" value="${u.email || ''}" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="edit-phone">Phone Number</label>
+                <input type="text" id="edit-phone" class="form-input" value="${u.phoneNumber || ''}" placeholder="e.g. +91 98765 43210">
+              </div>
+            </div>
+            <div class="form-group" style="margin-bottom: 12px;">
+              <label class="form-label" for="edit-avatar">Profile Pic URL</label>
+              <input type="text" id="edit-avatar" class="form-input" value="${u.avatar || ''}">
+            </div>
             <div class="form-group" style="margin-bottom: 12px;">
               <label class="form-label" for="edit-college">College / University</label>
               <input type="text" id="edit-college" class="form-input" value="${u.college || ''}" required>
@@ -3371,6 +3386,9 @@ Keep the response concise (2-4 sentences) and highly relevant to their profile o
         e.preventDefault();
         
         state.currentUser.name = document.getElementById('edit-name').value.trim();
+        state.currentUser.email = document.getElementById('edit-email').value.trim();
+        state.currentUser.phoneNumber = document.getElementById('edit-phone').value.trim();
+        state.currentUser.avatar = document.getElementById('edit-avatar').value.trim() || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150";
         state.currentUser.college = document.getElementById('edit-college').value.trim();
         state.currentUser.degree = document.getElementById('edit-degree').value.trim();
         state.currentUser.branch = document.getElementById('edit-branch').value.trim();
@@ -4877,15 +4895,15 @@ Sincerely,
     });
     
     container.innerHTML = `
-      <div style="padding: 48px 32px; max-width: 1000px; margin: auto;">
+      <div style="padding: 48px 16px; max-width: 1000px; margin: auto; box-sizing: border-box;">
         <!-- HERO HEADER BLOCK -->
-        <div style="display:grid; grid-template-columns: 1.2fr 0.8fr; gap:40px; border-bottom:3px solid #1A1A1A; padding-bottom:48px; align-items:center;">
+        <div class="port-hero-grid" style="border-bottom:3px solid #1A1A1A; padding-bottom:48px;">
           <div>
             <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
               <span style="background:#F5A623; color:#1A1A1A; padding:4px 12px; border-radius:20px; font-size:11px; font-weight:800; text-transform:uppercase; border:1.5px solid #1A1A1A;">${u.role.toUpperCase()} PORTFOLIO</span>
             </div>
             <!-- LARGE BUBBLE Heading customized with user name -->
-            <h1 style="font-size: 72px; font-family:'Outfit', 'Impact', sans-serif; font-weight:900; line-height:1.0; margin:0; text-transform:uppercase; letter-spacing:-2px; color:#1A1A1A; position:relative;">
+            <h1 class="hero-headline" style="font-size: 72px; font-family:'Outfit', 'Impact', sans-serif; font-weight:900; line-height:1.0; margin:0; text-transform:uppercase; letter-spacing:-2px; color:#1A1A1A; position:relative;">
               <span style="position:relative; z-index:2;">${u.name.split(' ')[0]}</span><br>
               <span style="color:transparent; -webkit-text-stroke: 2.5px #1A1A1A; position:relative; z-index:2;">${u.name.split(' ')[1] || 'PORTFOLIO'}.</span>
               <div style="position:absolute; width:180px; height:60px; background:#F5A623; border-radius:50px; top:35px; left:-20px; z-index:1; transform: rotate(-5deg);"></div>
@@ -4894,7 +4912,7 @@ Sincerely,
           </div>
           
           <!-- RIGHT IMAGE FRAME (Offset Yellow Backdrop) -->
-          <div style="display:flex; justify-content:center; align-items:center; position:relative;">
+          <div class="right-image-frame" style="display:flex; justify-content:center; align-items:center; position:relative;">
             <div style="position:absolute; width:220px; height:220px; background:#F5A623; border-radius:50%; border:2px solid #1A1A1A; top:10px; right:10px; z-index:1;"></div>
             <div style="width:230px; height:270px; border:3px solid #1A1A1A; background:#FFF; border-radius:16px; overflow:hidden; z-index:2; position:relative; box-shadow: 6px 6px 0px #1A1A1A; display:flex; align-items:center; justify-content:center; padding:12px;">
               <img src="${u.avatar}" style="width:100%; height:100%; object-fit:cover; border-radius:8px; filter: grayscale(100%) contrast(110%);" />
@@ -4903,7 +4921,7 @@ Sincerely,
         </div>
         
         <!-- ABOUT AND SKILLS BLOCK -->
-        <div style="display:grid; grid-template-columns: 0.8fr 1.2fr; gap:48px; padding:48px 0; border-bottom:3px solid #1A1A1A;">
+        <div class="port-about-grid" style="padding:48px 0; border-bottom:3px solid #1A1A1A;">
           <!-- Left: Contacts & QR Code -->
           <div>
             <div style="background:#FFF; border:3px solid #1A1A1A; border-radius:24px; padding:24px; box-shadow: 6px 6px 0px #1A1A1A; margin-bottom:24px; display:flex; flex-direction:column; align-items:center;">
@@ -4931,7 +4949,7 @@ Sincerely,
             </div>
             <p style="font-size:14.5px; color:#333; margin-bottom:32px; line-height:1.6;">${finalBio}</p>
             
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:32px;">
+            <div class="port-details-grid">
               <!-- Education & Experience -->
               <div>
                 <h4 style="font-size:14px; font-weight:800; border-bottom:1.5px solid #1A1A1A; padding-bottom:4px; margin:0 0 12px 0; text-transform:uppercase; color:#1A1A1A;">Working Experience</h4>
