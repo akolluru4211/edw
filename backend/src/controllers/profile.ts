@@ -183,7 +183,8 @@ export const updateProfile = async (req: AuthenticatedRequest, res: Response) =>
     goals,
     dob,
     latitude,
-    longitude
+    longitude,
+    isOnboarded
   } = req.body
 
   let gradYearNum: number | undefined = undefined
@@ -230,6 +231,7 @@ export const updateProfile = async (req: AuthenticatedRequest, res: Response) =>
         goals: goals ? JSON.stringify(goals) : undefined,
         latitude: latitude !== undefined ? (latitude !== null ? Number(latitude) : null) : undefined,
         longitude: longitude !== undefined ? (longitude !== null ? Number(longitude) : null) : undefined,
+        isOnboarded: isOnboarded !== undefined ? Boolean(isOnboarded) : undefined
       }
     })
 

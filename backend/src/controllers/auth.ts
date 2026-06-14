@@ -117,7 +117,8 @@ export const register = async (req: Request, res: Response) => {
           goals: JSON.stringify(goals || []),
           portfolioUrl: slug,
           readinessScore: 20, // Default base score for registering
-          dob: dobDate
+          dob: dobDate,
+          isOnboarded: true
         }
       })
 
@@ -562,7 +563,9 @@ export const firebaseLogin = async (req: Request, res: Response) => {
       include: { profile: true }
     })
 
+    let isNewUser = false
     if (!user) {
+      isNewUser = true
       // Create user and profile dynamically in transaction if first-time login
       const namePart = (name || userEmail.split('@')[0]).toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4)
       const memberId = `EDW-${namePart}-${Math.floor(1000 + Math.random() * 9000)}`
@@ -589,7 +592,8 @@ export const firebaseLogin = async (req: Request, res: Response) => {
             interests: '[]',
             goals: '[]',
             portfolioUrl: slug,
-            readinessScore: 20
+            readinessScore: 20,
+            isOnboarded: false
           }
         })
 
@@ -630,6 +634,7 @@ export const firebaseLogin = async (req: Request, res: Response) => {
 
     res.json({
       token,
+      isNewUser,
       user: {
         id: user.id,
         email: user.email,

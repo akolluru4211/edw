@@ -58,6 +58,7 @@ model Profile {
   dob            DateTime?
   latitude       Float?
   longitude      Float?
+  isOnboarded    Boolean       @default(false)
   
   projects       Project[]
   experience     Experience[]

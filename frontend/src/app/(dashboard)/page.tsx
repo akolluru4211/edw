@@ -7,11 +7,13 @@ import Link from 'next/link';
 import {
   TrendingUp, Briefcase, Users, BookOpen, Sparkles,
   ArrowRight, CheckCircle2, ChevronRight, Award, FileText,
-  Zap, Target, Star
+  Zap, Target, Star, User, ArrowLeft, Check, Plus, X, Globe, Mail, ShieldAlert,
+  GraduationCap
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Dashboard() {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const [score, setScore] = useState(20);
   const [loadingScore, setLoadingScore] = useState(true);
   const [stats, setStats] = useState({ connections: 0, applications: 0, certifications: 0 });
@@ -20,6 +22,121 @@ export default function Dashboard() {
   const [hasProjects, setHasProjects] = useState(false);
   const [hasExp, setHasExp] = useState(false);
   const [birthdays, setBirthdays] = useState<any[]>([]);
+
+  // Onboarding Wizard States
+  const [onboardStep, setOnboardStep] = useState(1);
+  const [onboardCollegeName, setOnboardCollegeName] = useState('');
+  const [onboardDegree, setOnboardDegree] = useState('');
+  const [onboardBranch, setOnboardBranch] = useState('');
+  const [onboardGraduationYear, setOnboardGraduationYear] = useState('2027');
+  const [onboardInterests, setOnboardInterests] = useState<string[]>([]);
+  const [onboardCustomInterest, setOnboardCustomInterest] = useState('');
+  const [onboardGoals, setOnboardGoals] = useState<string[]>([]);
+  const [onboardCustomGoal, setOnboardCustomGoal] = useState('');
+  const [onboardBio, setOnboardBio] = useState('');
+  const [onboardHeadline, setOnboardHeadline] = useState('');
+  const [onboardFullName, setOnboardFullName] = useState('');
+  const [onboardSaving, setOnboardSaving] = useState(false);
+  const [onboardError, setOnboardError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (user) {
+      setOnboardFullName(user.fullName || '');
+      setOnboardCollegeName(user.profile?.collegeName === 'GITAM University' ? '' : user.profile?.collegeName || '');
+      setOnboardDegree(user.profile?.degree === 'Bachelor of Technology' || user.profile?.degree === 'B.Tech' ? '' : user.profile?.degree || '');
+      setOnboardBranch(user.profile?.branch === 'Computer Science and Engineering' || user.profile?.branch === 'CSE' ? '' : user.profile?.branch || '');
+      setOnboardGraduationYear(user.profile?.graduationYear?.toString() || '2027');
+      setOnboardBio(user.profile?.bio || '');
+      setOnboardHeadline(user.profile?.headline || '');
+      
+      if (user.profile?.interests) {
+        try {
+          const parsed = JSON.parse(user.profile.interests);
+          if (Array.isArray(parsed) && parsed.length > 0) setOnboardInterests(parsed);
+        } catch (e) {}
+      }
+      if (user.profile?.goals) {
+        try {
+          const parsed = JSON.parse(user.profile.goals);
+          if (Array.isArray(parsed) && parsed.length > 0) setOnboardGoals(parsed);
+        } catch (e) {}
+      }
+    }
+  }, [user]);
+
+  const handleOnboardSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setOnboardError(null);
+    
+    if (!onboardFullName || !onboardCollegeName || !onboardDegree || !onboardBranch || !onboardGraduationYear) {
+      setOnboardError('Please fill in all academic details.');
+      return;
+    }
+    
+    setOnboardSaving(true);
+    try {
+      await api.put('/profile', {
+        fullName: onboardFullName,
+        collegeName: onboardCollegeName,
+        degree: onboardDegree,
+        branch: onboardBranch,
+        graduationYear: Number(onboardGraduationYear),
+        interests: onboardInterests,
+        goals: onboardGoals,
+        bio: onboardBio,
+        headline: onboardHeadline || 'Student Developer',
+        isOnboarded: true
+      });
+      
+      await refreshUser();
+    } catch (err: any) {
+      console.error(err);
+      setOnboardError(err.response?.data?.error || err.message || 'Onboarding failed to save.');
+    } finally {
+      setOnboardSaving(false);
+    }
+  };
+
+  const popularInterests = [
+    'Software Development', 'Machine Learning', 'Data Science', 
+    'UI/UX Design', 'Product Management', 'Cyber Security', 
+    'Web Development', 'Mobile Dev'
+  ];
+
+  const popularGoals = [
+    'Internship', 'Placement', 'Startup Launch', 
+    'Hackathons', 'Research Fellowship', 'M.Tech / Higher Studies'
+  ];
+
+  const toggleInterest = (val: string) => {
+    if (onboardInterests.includes(val)) {
+      setOnboardInterests(onboardInterests.filter(item => item !== val));
+    } else {
+      setOnboardInterests([...onboardInterests, val]);
+    }
+  };
+
+  const toggleGoal = (val: string) => {
+    if (onboardGoals.includes(val)) {
+      setOnboardGoals(onboardGoals.filter(item => item !== val));
+    } else {
+      setOnboardGoals([...onboardGoals, val]);
+    }
+  };
+
+  const addCustomInterest = () => {
+    if (onboardCustomInterest && !onboardInterests.includes(onboardCustomInterest)) {
+      setOnboardInterests([...onboardInterests, onboardCustomInterest]);
+      setOnboardCustomInterest('');
+    }
+  };
+
+  const addCustomGoal = () => {
+    if (onboardCustomGoal && !onboardGoals.includes(onboardCustomGoal)) {
+      setOnboardGoals([...onboardGoals, onboardCustomGoal]);
+      setOnboardCustomGoal('');
+    }
+  };
 
   useEffect(() => {
     if (!user?.id) return;
@@ -301,6 +418,315 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Onboarding Wizard Modal */}
+      {user && user.profile && user.profile.isOnboarded === false && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
+          <div className="bg-white/95 border border-slate-200/80 rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden p-6 md:p-8 space-y-6">
+            
+            {/* Stepper indicators */}
+            <div className="relative mb-6">
+              <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-slate-100 transform -translate-y-1/2 -z-10"></div>
+              <div 
+                className="absolute top-1/2 left-0 h-0.5 bg-sky-500 transform -translate-y-1/2 -z-10 transition-all duration-300"
+                style={{ width: `${((onboardStep - 1) / 2) * 100}%` }}
+              ></div>
+              <div className="flex justify-between relative z-10">
+                {[
+                  { s: 1, label: 'Academic', icon: GraduationCap },
+                  { s: 2, label: 'Interests', icon: Target },
+                  { s: 3, label: 'Summary', icon: User },
+                ].map((item) => {
+                  const Icon = item.icon;
+                  const isCompleted = onboardStep > item.s;
+                  const isActive = onboardStep === item.s;
+                  return (
+                    <div key={item.s} className="flex flex-col items-center gap-1">
+                      <div className={`h-8 w-8 rounded-full flex items-center justify-center font-bold text-xs border transition-all ${
+                        isCompleted 
+                          ? 'bg-sky-500 border-sky-500 text-white shadow-sm shadow-sky-100' 
+                          : isActive 
+                          ? 'bg-white border-sky-500 text-sky-600 shadow-sm shadow-sky-100 ring-2 ring-sky-100' 
+                          : 'bg-white border-slate-200 text-slate-400'
+                      }`}>
+                        {isCompleted ? <Check className="h-4 w-4" /> : item.s}
+                      </div>
+                      <span className={`text-[9px] font-extrabold uppercase tracking-wider ${isActive ? 'text-sky-600' : 'text-slate-400'}`}>
+                        {item.label}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {onboardError && (
+              <div className="bg-red-50 border border-red-200 text-red-600 text-xs font-semibold p-3.5 rounded-2xl flex items-start gap-2.5">
+                <ShieldAlert className="h-4.5 w-4.5 shrink-0 mt-0.5" />
+                <span>{onboardError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleOnboardSubmit} className="space-y-4">
+              {/* Step 1: Academic Info */}
+              {onboardStep === 1 && (
+                <div className="space-y-4">
+                  <h2 className="text-lg font-black text-slate-800 tracking-tight">Academic Overview</h2>
+                  <p className="text-xs text-slate-500 font-medium leading-relaxed">Let us know where you are studying so we can customize your dashboard recommendations.</p>
+                  
+                  <div>
+                    <label className="block text-slate-600 font-semibold text-[10px] uppercase tracking-wider mb-2">Full Name</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Alice Chen"
+                      value={onboardFullName}
+                      onChange={(e) => setOnboardFullName(e.target.value)}
+                      className="w-full bg-slate-50 hover:bg-slate-100 focus:bg-white text-xs text-slate-800 rounded-2xl px-4 py-3.5 border border-slate-200 focus:border-sky-300 focus:outline-none transition-all duration-200"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-600 font-semibold text-[10px] uppercase tracking-wider mb-2">College / University</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. GITAM University"
+                      value={onboardCollegeName}
+                      onChange={(e) => setOnboardCollegeName(e.target.value)}
+                      className="w-full bg-slate-50 hover:bg-slate-100 focus:bg-white text-xs text-slate-800 rounded-2xl px-4 py-3.5 border border-slate-200 focus:border-sky-300 focus:outline-none transition-all duration-200"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-slate-600 font-semibold text-[10px] uppercase tracking-wider mb-2">Degree</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. B.Tech"
+                        value={onboardDegree}
+                        onChange={(e) => setOnboardDegree(e.target.value)}
+                        className="w-full bg-slate-50 hover:bg-slate-100 focus:bg-white text-xs text-slate-800 rounded-2xl px-4 py-3.5 border border-slate-200 focus:border-sky-300 focus:outline-none transition-all duration-200"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-600 font-semibold text-[10px] uppercase tracking-wider mb-2">Branch / Field</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. Computer Science"
+                        value={onboardBranch}
+                        onChange={(e) => setOnboardBranch(e.target.value)}
+                        className="w-full bg-slate-50 hover:bg-slate-100 focus:bg-white text-xs text-slate-800 rounded-2xl px-4 py-3.5 border border-slate-200 focus:border-sky-300 focus:outline-none transition-all duration-200"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-600 font-semibold text-[10px] uppercase tracking-wider mb-2">Graduation Year</label>
+                    <input
+                      type="number"
+                      required
+                      placeholder="2027"
+                      value={onboardGraduationYear}
+                      onChange={(e) => setOnboardGraduationYear(e.target.value)}
+                      className="w-full bg-slate-50 hover:bg-slate-100 focus:bg-white text-xs text-slate-800 rounded-2xl px-4 py-3.5 border border-slate-200 focus:border-sky-300 focus:outline-none transition-all duration-200"
+                    />
+                  </div>
+
+                  <div className="flex justify-end pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!onboardFullName || !onboardCollegeName || !onboardDegree || !onboardBranch || !onboardGraduationYear) {
+                          setOnboardError('Please fill in all details.');
+                        } else {
+                          setOnboardError(null);
+                          setOnboardStep(2);
+                        }
+                      }}
+                      className="inline-flex items-center gap-2 bg-sky-500 hover:bg-sky-600 text-white font-semibold text-xs px-5 py-3 rounded-2xl shadow-sm transition-all"
+                    >
+                      Next Step <ArrowRight className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 2: Interests & Goals */}
+              {onboardStep === 2 && (
+                <div className="space-y-4">
+                  <h2 className="text-lg font-black text-slate-800 tracking-tight">Interests & Targets</h2>
+                  <p className="text-xs text-slate-500 font-medium leading-relaxed">Choose areas you are interested in and career targets so our RAG engine feeds relevant opportunities.</p>
+                  
+                  <div>
+                    <label className="block text-slate-600 font-semibold text-[10px] uppercase tracking-wider mb-2">Interests</label>
+                    <div className="flex flex-wrap gap-2 mb-2">
+                      {popularInterests.map((interest) => {
+                        const active = onboardInterests.includes(interest);
+                        return (
+                          <button
+                            type="button"
+                            key={interest}
+                            onClick={() => toggleInterest(interest)}
+                            className={`text-[10px] font-bold px-3 py-1.5 rounded-full border transition-all ${
+                              active 
+                                ? 'bg-sky-500 border-sky-500 text-white shadow-sm' 
+                                : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                            }`}
+                          >
+                            {interest}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="Add custom interest..."
+                        value={onboardCustomInterest}
+                        onChange={(e) => setOnboardCustomInterest(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            addCustomInterest();
+                          }
+                        }}
+                        className="flex-1 bg-slate-50 hover:bg-slate-100 focus:bg-white text-xs text-slate-800 rounded-xl px-3 py-2 border border-slate-200 focus:border-sky-300 focus:outline-none transition-all duration-200"
+                      />
+                      <button
+                        type="button"
+                        onClick={addCustomInterest}
+                        className="bg-slate-800 text-white p-2 rounded-xl hover:bg-slate-700 transition-colors"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-600 font-semibold text-[10px] uppercase tracking-wider mb-2">Career Goals</label>
+                    <div className="flex flex-wrap gap-2 mb-2">
+                      {popularGoals.map((goal) => {
+                        const active = onboardGoals.includes(goal);
+                        return (
+                          <button
+                            type="button"
+                            key={goal}
+                            onClick={() => toggleGoal(goal)}
+                            className={`text-[10px] font-bold px-3 py-1.5 rounded-full border transition-all ${
+                              active 
+                                ? 'bg-pink-500 border-pink-500 text-white shadow-sm' 
+                                : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                            }`}
+                          >
+                            {goal}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="Add custom goal..."
+                        value={onboardCustomGoal}
+                        onChange={(e) => setOnboardCustomGoal(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            addCustomGoal();
+                          }
+                        }}
+                        className="flex-1 bg-slate-50 hover:bg-slate-100 focus:bg-white text-xs text-slate-800 rounded-xl px-3 py-2 border border-slate-200 focus:border-sky-300 focus:outline-none transition-all duration-200"
+                      />
+                      <button
+                        type="button"
+                        onClick={addCustomGoal}
+                        className="bg-slate-800 text-white p-2 rounded-xl hover:bg-slate-700 transition-colors"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-between pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setOnboardStep(1)}
+                      className="inline-flex items-center gap-2 border border-slate-200 hover:bg-slate-50 text-slate-600 font-semibold text-xs px-5 py-3 rounded-2xl shadow-sm transition-all"
+                    >
+                      <ArrowLeft className="h-4 w-4" /> Back
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (onboardInterests.length === 0 || onboardGoals.length === 0) {
+                          setOnboardError('Please choose at least 1 interest and 1 goal.');
+                        } else {
+                          setOnboardError(null);
+                          setOnboardStep(3);
+                        }
+                      }}
+                      className="inline-flex items-center gap-2 bg-sky-500 hover:bg-sky-600 text-white font-semibold text-xs px-5 py-3 rounded-2xl shadow-sm transition-all"
+                    >
+                      Next Step <ArrowRight className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 3: Biography */}
+              {onboardStep === 3 && (
+                <div className="space-y-4">
+                  <h2 className="text-lg font-black text-slate-800 tracking-tight">Biography & Professional Title</h2>
+                  <p className="text-xs text-slate-500 font-medium leading-relaxed">Finish configuring your public digital card by introducing yourself.</p>
+                  
+                  <div>
+                    <label className="block text-slate-600 font-semibold text-[10px] uppercase tracking-wider mb-2">Headline</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Python Developer & CSE Student"
+                      value={onboardHeadline}
+                      onChange={(e) => setOnboardHeadline(e.target.value)}
+                      className="w-full bg-slate-50 hover:bg-slate-100 focus:bg-white text-xs text-slate-800 rounded-2xl px-4 py-3.5 border border-slate-200 focus:border-sky-300 focus:outline-none transition-all duration-200"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-600 font-semibold text-[10px] uppercase tracking-wider mb-2">Biography (About You)</label>
+                    <textarea
+                      placeholder="Tell the community about your goals, interests, and background..."
+                      value={onboardBio}
+                      onChange={(e) => setOnboardBio(e.target.value)}
+                      className="w-full bg-slate-50 hover:bg-slate-100 focus:bg-white text-xs text-slate-800 rounded-2xl px-4 py-3.5 border border-slate-200 focus:border-sky-300 focus:outline-none transition-all duration-200 h-28 resize-none"
+                    />
+                  </div>
+
+                  <div className="flex justify-between pt-2">
+                    <button
+                      type="button"
+                      disabled={onboardSaving}
+                      onClick={() => setOnboardStep(2)}
+                      className="inline-flex items-center gap-2 border border-slate-200 hover:bg-slate-50 text-slate-600 font-semibold text-xs px-5 py-3 rounded-2xl shadow-sm transition-all disabled:opacity-50"
+                    >
+                      <ArrowLeft className="h-4 w-4" /> Back
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={onboardSaving}
+                      className="inline-flex items-center gap-2 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white font-bold text-xs px-6 py-3 rounded-2xl shadow-md transition-all disabled:opacity-70"
+                    >
+                      {onboardSaving ? 'Saving...' : 'Complete Profile'} <Check className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

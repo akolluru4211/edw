@@ -33,6 +33,7 @@ export interface User {
     degree: string;
     branch: string;
     graduationYear: number;
+    headline?: string;
     interests: string; // JSON string in SQLite
     goals: string; // JSON string in SQLite
     readinessScore: number;
@@ -42,6 +43,7 @@ export interface User {
     dob?: string;
     latitude?: number;
     longitude?: number;
+    isOnboarded?: boolean;
   };
 }
 
