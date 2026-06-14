@@ -31,7 +31,8 @@ import {
   Plus,
   MessageSquare,
   Globe,
-  Coins
+  Coins,
+  Award
 } from 'lucide-react';
 
 interface DashboardLayoutProps {
@@ -63,6 +64,7 @@ const navGroups = [
       { name: 'Connections', href: '/network', icon: Users, desc: 'Grow your network' },
       { name: 'Community', href: '/community', icon: MessagesSquare, desc: 'Q&A and posts' },
       { name: 'Notifications', href: '/notifications', icon: Bell, desc: 'Push alerts & history' },
+      { name: 'Ambassador', href: '/ambassador', icon: Award, desc: 'Apply to represent us' },
     ]
   }
 ];

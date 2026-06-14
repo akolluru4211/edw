@@ -36,6 +36,7 @@ model User {
   comments      Comment[]
   chats         AIChat[]
   notifications Notification[]
+  ambassadorApplications AmbassadorApplication[]
 }
 
 model Profile {
@@ -270,6 +271,27 @@ model PointTransaction {
   points      Int      // e.g. +50, +10, -200
   description String   // e.g. "Welcome Signup Reward", "Daily Login Bonus", etc.
   createdAt   DateTime @default(now())
+
+  @@index([userId])
+}
+
+model AmbassadorApplication {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  email       String
+  phone       String
+  whatsapp    String
+  linkedin    String
+  collegeName String
+  course      String
+  year        String
+  rollNumber  String
+  city        String
+  status      String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@index([userId])
 }

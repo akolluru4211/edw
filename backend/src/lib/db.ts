@@ -257,6 +257,17 @@ async function resolveRelations(collectionName: string, doc: any, include: any):
           return await resolveRelations('pointTransactions', item, relInclude);
         }));
       }
+      else if (relation === 'ambassadorApplications') {
+        const snap = await firestoreDb.collection('ambassadorApplications').where('userId', '==', doc.id).get();
+        let list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const relArgs = include[relation];
+        if (relArgs && typeof relArgs === 'object' && relArgs.where) {
+          list = list.filter(item => matchFilter(item, relArgs.where));
+        }
+        result.ambassadorApplications = await Promise.all(list.map(async item => {
+          return await resolveRelations('ambassadorApplications', item, relInclude);
+        }));
+      }
     }
     else if (collectionName === 'profiles') {
       if (relation === 'skills') {
@@ -375,7 +386,7 @@ async function resolveRelations(collectionName: string, doc: any, include: any):
         result.user = userDoc.exists ? await resolveRelations('users', { id: userDoc.id, ...userDoc.data() }, relInclude) : null;
       }
     }
-    else if (collectionName === 'aiChats') {
+    else if (collectionName === 'aiChats' || collectionName === 'ambassadorApplications') {
       if (relation === 'user') {
         const userDoc = await firestoreDb.collection('users').doc(doc.userId).get();
         result.user = userDoc.exists ? await resolveRelations('users', { id: userDoc.id, ...userDoc.data() }, relInclude) : null;
@@ -635,6 +646,7 @@ class PrismaFirestoreClient {
   dataLog = new CollectionClient('dataLogs');
   passwordResetOTP = new CollectionClient('passwordResetOTPs');
   pointTransaction = new CollectionClient('pointTransactions');
+  ambassadorApplication = new CollectionClient('ambassadorApplications');
 
   async $transaction(fn: (tx: any) => Promise<any>) {
     return await fn(this);
