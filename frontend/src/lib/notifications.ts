@@ -17,7 +17,8 @@ import { api } from './api';
 // Replace this placeholder with your actual VAPID public key
 export const VAPID_PUBLIC_KEY =
   process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ||
-  'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U'; // placeholder
+  'BEZ-1zq7QK9IOSOawrHCMrLgIi6SPrigjttU0_pb7_pgMsmD8P9FylabelhIAWkFoVzlUW8ldXuaqLX9X2G0_VI';
+
 
 // ── Convert VAPID key to Uint8Array ────────────────────────────────────────
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
