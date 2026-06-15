@@ -64,9 +64,79 @@ export function encryptHybridNode(plaintext: string, recipientPublicKeyBase64: s
 // 2. High-Quality Seed Openings dataset
 const MOCK_OPENINGS: MockOpening[] = [];
 
-// 3. Ingestion Sync Pipeline (daily simulated scraper scraper deactivated)
+// 3. Ingestion Sync Pipeline (seeding Google, Stripe, Microsoft, Meta, and Amazon jobs if empty)
 export const syncDailyOpportunities = async () => {
-  console.log('RAG Pipeline Ingestion: Skipped mock opportunities.');
+  try {
+    const count = await prisma.opportunity.count()
+    if (count > 0) {
+      console.log('RAG Pipeline Ingestion: Opportunities already exist. Skipping automatic seeding.');
+      return;
+    }
+
+    console.log('RAG Pipeline Ingestion: Seeding top tech company opportunities...');
+    await prisma.opportunity.createMany({
+      data: [
+        {
+          title: 'Software Engineering Intern',
+          companyName: 'Google',
+          companyType: 'ENTERPRISE',
+          location: 'Mountain View, CA',
+          salary: '$45 - $55 / hr',
+          remote: true,
+          type: 'INTERNSHIP',
+          skillsRequired: JSON.stringify(['JavaScript', 'TypeScript', 'Python', 'SQL']),
+          description: 'Work on Google Cloud Platform frontend development, building intuitive console layouts and API analytics interfaces.'
+        },
+        {
+          title: 'Backend Engineer',
+          companyName: 'Stripe',
+          companyType: 'ENTERPRISE',
+          location: 'San Francisco, CA',
+          salary: '$130,000 - $160,000 / yr',
+          remote: false,
+          type: 'JOB',
+          skillsRequired: JSON.stringify(['Node.js', 'SQL', 'TypeScript', 'Git', 'Docker', 'System Design']),
+          description: 'Scale core billing and subscription APIs. You will design database schemas, write migrations, and optimize payment processing latency.'
+        },
+        {
+          title: 'Software Engineer',
+          companyName: 'Microsoft',
+          companyType: 'ENTERPRISE',
+          location: 'Redmond, WA',
+          salary: '$120,000 - $150,000 / yr',
+          remote: false,
+          type: 'JOB',
+          skillsRequired: JSON.stringify(['TypeScript', 'React', 'Node.js', 'CI/CD']),
+          description: 'Build premium web experiences within the Microsoft 365 developer suite. Implement glassmorphic layouts, optimize startup performance, and automate CI/CD workflows.'
+        },
+        {
+          title: 'Frontend Engineer',
+          companyName: 'Meta',
+          companyType: 'ENTERPRISE',
+          location: 'Menlo Park, CA',
+          salary: '$140,000 - $170,000 / yr',
+          remote: false,
+          type: 'JOB',
+          skillsRequired: JSON.stringify(['React', 'JavaScript', 'Git', 'TypeScript']),
+          description: 'Develop web interfaces for the Ads Manager platform. Create high-fidelity design system components, prioritize performance budgets, and build micro-animations.'
+        },
+        {
+          title: 'Software Development Engineer Intern',
+          companyName: 'Amazon',
+          companyType: 'ENTERPRISE',
+          location: 'Seattle, WA',
+          salary: '$40 - $50 / hr',
+          remote: true,
+          type: 'INTERNSHIP',
+          skillsRequired: JSON.stringify(['Python', 'SQL', 'Docker', 'System Design']),
+          description: 'Design automated supply-chain routing and fulfillment models. You will write robust analytics jobs and scale containerized services.'
+        }
+      ]
+    });
+    console.log('RAG Pipeline Ingestion: Seeding completed successfully.');
+  } catch (error) {
+    console.error('Failed to sync daily opportunities:', error);
+  }
 };
 
 // 4. Seeding real-world peer users (Only Gitam Admin seeded for production setup)

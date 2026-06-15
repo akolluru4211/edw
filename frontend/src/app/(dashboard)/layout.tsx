@@ -215,6 +215,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     : navGroups;
 
   const userInitials = user.fullName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2);
+  const avatarSrc = user.profile?.avatarUrl
+    ? (user.profile.avatarUrl.startsWith('http') ? user.profile.avatarUrl : `${BACKEND_URL}${user.profile.avatarUrl}`)
+    : null;
 
   return (
     <div className="flex h-screen w-screen min-h-0 overflow-hidden bg-slate-50">
@@ -222,15 +225,15 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       {/* ─── Sidebar Backdrop (mobile) ─── */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-sm hidden md:block"
+          className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-sm md:hidden block"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       {/* ─── Sidebar ─── */}
       <aside
-        className={`fixed md:static inset-y-0 left-0 z-50 hidden md:flex flex-col bg-white border-r border-slate-200 transition-all duration-300 ease-in-out
-          ${sidebarOpen ? 'w-64 shadow-2xl' : 'w-16 overflow-hidden'}
+        className={`fixed md:static inset-y-0 left-0 z-50 flex flex-col bg-white border-r border-slate-200 transition-all duration-300 ease-in-out
+          ${sidebarOpen ? 'w-64 shadow-2xl translate-x-0' : '-translate-x-full md:translate-x-0 md:w-16 md:overflow-hidden'}
           md:overflow-visible`}
       >
         {/* Brand */}
@@ -326,8 +329,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         <div className={`border-t border-slate-100 ${sidebarOpen ? 'p-3' : 'p-2'} pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]`}>
           {sidebarOpen ? (
             <div className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-50 transition-colors">
-              {user.profile?.avatarUrl ? (
-                <img src={`${BACKEND_URL}${user.profile.avatarUrl}`} alt="Avatar" className="h-8 w-8 rounded-full object-cover shrink-0" />
+              {avatarSrc ? (
+                <img src={avatarSrc} alt="Avatar" className="h-8 w-8 rounded-full object-cover shrink-0" />
               ) : (
                 <div className="h-8 w-8 rounded-full bg-gradient-to-br from-sky-500 to-blue-500 text-white font-bold text-xs flex items-center justify-center shrink-0">
                   {userInitials}
@@ -366,10 +369,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         {/* ─── Top Header ─── */}
         <header className="h-[calc(4rem+env(safe-area-inset-top,0px))] pt-[env(safe-area-inset-top,0px)] bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-6 shrink-0 z-30">
           <div className="flex items-center gap-3">
-            {/* Hamburger — hidden on mobile */}
+            {/* Hamburger */}
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="hidden md:flex items-center justify-center h-9 w-9 rounded-xl hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition-colors"
+              className="flex items-center justify-center h-9 w-9 rounded-xl hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition-colors"
               aria-label="Toggle menu"
             >
               <Menu className="h-5 w-5" />
@@ -440,9 +443,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                         </div>
                       ) : history.slice(0, 5).map(n => (
                         <div
-                          key={n.id}
-                          className={`px-4 py-3.5 hover:bg-slate-50 transition-colors cursor-pointer ${!n.read ? 'bg-sky-50/30' : ''}`}
-                          onClick={() => { markRead(n.id); setNotifOpen(false); }}
+                           key={n.id}
+                           className={`px-4 py-3.5 hover:bg-slate-50 transition-colors cursor-pointer ${!n.read ? 'bg-sky-50/30' : ''}`}
+                           onClick={() => { markRead(n.id); setNotifOpen(false); }}
                         >
                           <div className="flex items-start justify-between gap-2 mb-1">
                             <p className={`text-xs text-slate-800 ${!n.read ? 'font-bold' : 'font-semibold'}`}>{n.title}</p>
@@ -470,8 +473,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
             {/* Avatar */}
             <Link href={isAdmin ? "/admin" : "/profile"} className="flex items-center gap-2 pl-1 pr-3 py-1 border border-slate-200 hover:border-slate-300 rounded-full bg-white transition-colors">
-              {user.profile?.avatarUrl ? (
-                <img src={`${BACKEND_URL}${user.profile.avatarUrl}`} alt="Avatar" className="h-7 w-7 rounded-full object-cover shrink-0" />
+              {avatarSrc ? (
+                <img src={avatarSrc} alt="Avatar" className="h-7 w-7 rounded-full object-cover shrink-0" />
               ) : (
                 <div className="h-7 w-7 rounded-full bg-gradient-to-br from-sky-500 to-blue-600 text-white font-bold text-xs flex items-center justify-center shrink-0">
                   {userInitials}
@@ -509,10 +512,26 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           { name: 'AI Coach', href: '/ai-coach', icon: MessageSquareCode },
           { name: 'Jobs', href: '/jobs', icon: Briefcase },
           { name: 'Network', href: '/network', icon: Users },
-          { name: 'Profile', href: '/profile', icon: UserCircle }
+          { name: 'Menu', href: '#menu', icon: Menu, isMenuToggle: true }
         ].map(item => {
           const Icon = item.icon;
-          const active = pathname === item.href;
+          const active = item.isMenuToggle ? sidebarOpen : pathname === item.href;
+          
+          if (item.isMenuToggle) {
+            return (
+              <button
+                key={item.name}
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl transition-all duration-150 select-none ${
+                  active ? 'text-sky-600 font-extrabold scale-105' : 'text-slate-400 hover:text-slate-700 font-medium'
+                }`}
+              >
+                <Icon className="h-5 w-5 shrink-0" />
+                <span className="text-[10px] tracking-tight">{item.name}</span>
+              </button>
+            );
+          }
+
           return (
             <Link
               key={item.href}
@@ -531,9 +550,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
       {/* ─── Floating Global Chatbot Bubble & Drawer ─── */}
       {!isAdmin && (
-        <div className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:bottom-[calc(1.5rem+env(safe-area-inset-bottom,0px))] right-[calc(1rem+env(safe-area-inset-right,0px))] md:right-[calc(1.5rem+env(safe-area-inset-right,0px))] z-40 flex flex-col items-end">
+        <div className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] md:bottom-[calc(1.5rem+env(safe-area-inset-bottom,0px))] right-4 md:right-[calc(1.5rem+env(safe-area-inset-right,0px))] z-40 flex flex-col items-end">
           {chatOpen && (
-            <div className="mb-4 w-96 max-w-[calc(100vw-2rem)] h-[460px] bg-white border border-slate-200 rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-scale-in">
+            <div className="mb-4 w-[320px] xs:w-96 max-w-[calc(100vw-2rem)] h-[400px] xs:h-[460px] bg-white border border-slate-200 rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-scale-in">
               {/* Chat Header */}
               <div className="bg-sky-600 text-white px-4 py-3.5 flex items-center justify-between shrink-0">
                 <div className="flex items-center gap-2">
@@ -618,7 +637,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           <button
             onClick={() => setChatOpen(!chatOpen)}
             title="Career Coach Chat"
-            className="h-12 w-12 bg-sky-600 hover:bg-sky-700 text-white rounded-full shadow-2xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 shrink-0 group focus:outline-none focus:ring-2 focus:ring-sky-500/20"
+            className="h-10 w-10 xs:h-12 xs:w-12 bg-sky-600 hover:bg-sky-700 text-white rounded-full shadow-2xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 shrink-0 group focus:outline-none focus:ring-2 focus:ring-sky-500/20"
           >
             {chatOpen ? <X className="h-5 w-5" /> : <MessageSquare className="h-5 w-5 animate-pulse" />}
           </button>

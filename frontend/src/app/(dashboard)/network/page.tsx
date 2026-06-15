@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { encryptHybrid, decryptHybrid, importPublicKey } from '@/lib/crypto';
 import { motion, AnimatePresence } from 'framer-motion';
+import Link from 'next/link';
 
 interface Peer {
   id: string;
@@ -26,6 +27,7 @@ interface Peer {
   latitude?: number | null;
   longitude?: number | null;
   distance?: number | null;
+  portfolioUrl?: string | null;
 }
 
 interface Message {
@@ -397,22 +399,26 @@ export default function NetworkingHub() {
                     className="bg-white border border-slate-200/80 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center gap-4 hover:shadow-md hover:border-slate-300 transition-all duration-300"
                   >
                     {/* Avatar */}
-                    {peer.avatarUrl ? (
-                      <img
-                        src={`${BACKEND_URL}${peer.avatarUrl}`}
-                        alt={peer.fullName}
-                        className="h-12 w-12 rounded-2xl object-cover shrink-0 border border-slate-100"
-                      />
-                    ) : (
-                      <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-sky-500 via-blue-500 to-blue-600 text-white font-black text-base flex items-center justify-center shrink-0 shadow-sm shadow-blue-500/10">
-                        {initials(peer.fullName)}
-                      </div>
-                    )}
+                    <Link href={`/u/${peer.portfolioUrl || peer.id}`} target="_blank" className="hover:opacity-85 transition-opacity shrink-0">
+                      {peer.avatarUrl ? (
+                        <img
+                          src={peer.avatarUrl.startsWith('http') ? peer.avatarUrl : `${BACKEND_URL}${peer.avatarUrl}`}
+                          alt={peer.fullName}
+                          className="h-12 w-12 rounded-2xl object-cover border border-slate-100"
+                        />
+                      ) : (
+                        <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-sky-500 via-blue-500 to-blue-600 text-white font-black text-base flex items-center justify-center shadow-sm shadow-blue-500/10">
+                          {initials(peer.fullName)}
+                        </div>
+                      )}
+                    </Link>
 
                     {/* Info */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-bold text-slate-900 text-base tracking-tight">{peer.fullName}</p>
+                        <Link href={`/u/${peer.portfolioUrl || peer.id}`} target="_blank" className="hover:text-sky-600 transition-colors">
+                          <p className="font-bold text-slate-900 text-base tracking-tight">{peer.fullName}</p>
+                        </Link>
                         <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border ${roleColors[peer.role] || 'bg-slate-50 text-slate-600 border-slate-200'}`}>
                           {peer.role}
                         </span>
@@ -518,7 +524,7 @@ export default function NetworkingHub() {
                     </button>
                     {chatTarget.avatarUrl ? (
                       <img
-                        src={`${BACKEND_URL}${chatTarget.avatarUrl}`}
+                        src={chatTarget.avatarUrl.startsWith('http') ? chatTarget.avatarUrl : `${BACKEND_URL}${chatTarget.avatarUrl}`}
                         alt={chatTarget.fullName}
                         className="h-9 w-9 rounded-full object-cover shrink-0 border border-slate-150"
                       />

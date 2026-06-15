@@ -89,6 +89,17 @@ export async function sendPushToUser(
 ): Promise<void> {
   try {
     const db = (prisma as any)._db
+
+    // Log notification to history first, so it is always available in-app!
+    await db.collection('notification_history').add({
+      userId,
+      title,
+      body,
+      data,
+      sentAt: new Date().toISOString(),
+      read: false
+    })
+
     const snap = await db.collection('push_subscriptions')
       .where('userId', '==', userId)
       .get()
@@ -173,16 +184,6 @@ export async function sendPushToUser(
         await delBatch.commit()
       }
     }
-
-    // Log notification to history
-    await db.collection('notification_history').add({
-      userId,
-      title,
-      body,
-      data,
-      sentAt: new Date().toISOString(),
-      read: false
-    })
   } catch (error) {
     console.error('sendPushToUser error:', error)
   }

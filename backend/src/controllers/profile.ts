@@ -5,23 +5,9 @@ import multer from 'multer'
 import path from 'path'
 import fs from 'fs'
 import os from 'os'
+import { uploadFileToFirebase } from '../lib/storage'
 
-const isVercel = process.env.VERCEL || process.env.NOW_BUILDER;
-const avatarDir = isVercel
-  ? path.join(os.tmpdir(), 'uploads', 'avatars')
-  : path.join(process.cwd(), 'uploads', 'avatars')
-if (!fs.existsSync(avatarDir)) {
-  fs.mkdirSync(avatarDir, { recursive: true })
-}
-
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, avatarDir),
-  filename: (req: any, file, cb) => {
-    const userId = req.user?.id || 'anon'
-    const ext = path.extname(file.originalname)
-    cb(null, `${userId}_avatar_${Date.now()}${ext}`)
-  }
-})
+const storage = multer.memoryStorage()
 
 const fileFilter = (_req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
   const allowed = ['.jpg', '.jpeg', '.png', '.webp', '.gif']
@@ -39,12 +25,29 @@ export const avatarUpload = multer({
   limits: { fileSize: 5 * 1024 * 1024 } // 5MB
 })
 
+const mediaFilter = (_req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+  const allowed = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.mp4', '.mov', '.webm', '.avi']
+  const ext = path.extname(file.originalname).toLowerCase()
+  if (allowed.includes(ext)) {
+    cb(null, true)
+  } else {
+    cb(new Error('Accepted files: JPG, JPEG, PNG, WEBP, GIF, MP4, MOV, WEBM, AVI'))
+  }
+}
+
+export const mediaUpload = multer({
+  storage,
+  fileFilter: mediaFilter,
+  limits: { fileSize: 20 * 1024 * 1024 } // 20MB
+})
+
+
 
 // Fetch user profile by ID
 export const getProfile = async (req: AuthenticatedRequest, res: Response) => {
   const userId = req.params.userId as string
   try {
-    const profile = await prisma.profile.findUnique({
+    let profile = await prisma.profile.findUnique({
       where: { userId },
       include: {
         user: {
@@ -59,11 +62,51 @@ export const getProfile = async (req: AuthenticatedRequest, res: Response) => {
         skills: true
       }
     })
+    
     if (!profile) {
-      return res.status(404).json({ error: 'Profile not found' })
+      // Create a default profile to prevent 404 errors!
+      const userRecord = await prisma.user.findUnique({ where: { id: userId } })
+      if (!userRecord) {
+        return res.status(404).json({ error: 'User not found' })
+      }
+      const slug = userRecord.fullName.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + Math.floor(Math.random() * 1000)
+      
+      await prisma.profile.create({
+        data: {
+          userId,
+          collegeName: 'GITAM University',
+          degree: 'Bachelor of Technology',
+          branch: 'Computer Science and Engineering',
+          graduationYear: 2026,
+          interests: '[]',
+          goals: '[]',
+          portfolioUrl: slug,
+          readinessScore: 20,
+          isOnboarded: false
+        }
+      })
+      
+      // Fetch again with includes
+      profile = await prisma.profile.findUnique({
+        where: { userId },
+        include: {
+          user: {
+            include: {
+              connections: true,
+              applications: true
+            }
+          },
+          projects: true,
+          experience: true,
+          certifications: true,
+          skills: true
+        }
+      })
     }
+    
     res.json(profile)
   } catch (error) {
+    console.error('getProfile error:', error)
     res.status(500).json({ error: 'Internal server error fetching profile' })
   }
 }
@@ -180,6 +223,8 @@ export const updateProfile = async (req: AuthenticatedRequest, res: Response) =>
     graduationYear,
     bio,
     avatarUrl,
+    bannerUrl,
+    mediaItems,
     portfolioUrl,
     interests,
     goals,
@@ -238,10 +283,12 @@ export const updateProfile = async (req: AuthenticatedRequest, res: Response) =>
         graduationYear: gradYearNum,
         bio,
         avatarUrl,
+        bannerUrl: bannerUrl !== undefined ? bannerUrl : undefined,
+        mediaItems: mediaItems !== undefined ? (typeof mediaItems === 'string' ? mediaItems : JSON.stringify(mediaItems)) : undefined,
         portfolioUrl,
         dob: dobDate,
-        interests: interests ? JSON.stringify(interests) : undefined,
-        goals: goals ? JSON.stringify(goals) : undefined,
+        interests: interests ? (typeof interests === 'string' ? interests : JSON.stringify(interests)) : undefined,
+        goals: goals ? (typeof goals === 'string' ? goals : JSON.stringify(goals)) : undefined,
         latitude: latitude !== undefined ? (latitude !== null ? Number(latitude) : null) : undefined,
         longitude: longitude !== undefined ? (longitude !== null ? Number(longitude) : null) : undefined,
         isOnboarded: isOnboarded !== undefined ? Boolean(isOnboarded) : undefined
@@ -508,22 +555,13 @@ export const addCertification = async (req: AuthenticatedRequest, res: Response)
         return res.status(400).json({ error: 'No image file uploaded' })
       }
 
-      const avatarUrl = `/uploads/avatars/${file.filename}`
-
-      const profile = await prisma.profile.findUnique({
-        where: { userId: req.user.id }
-      })
-
-      if (profile && profile.avatarUrl && profile.avatarUrl.startsWith('/uploads/avatars/')) {
-        const oldPath = path.join(process.cwd(), profile.avatarUrl)
-        if (fs.existsSync(oldPath)) {
-          try {
-            fs.unlinkSync(oldPath)
-          } catch (err) {
-            console.error('Failed to delete old avatar:', err)
-          }
-        }
-      }
+      const avatarUrl = await uploadFileToFirebase(
+        file.buffer,
+        file.originalname,
+        file.mimetype,
+        'avatars',
+        req.user.id
+      )
 
       const updated = await prisma.profile.update({
         where: { userId: req.user.id },
@@ -536,6 +574,61 @@ export const addCertification = async (req: AuthenticatedRequest, res: Response)
     } catch (error) {
       console.error('Avatar upload error:', error)
       res.status(500).json({ error: 'Internal server error uploading avatar' })
+    }
+  }
+
+  // Upload Profile Banner
+  export const uploadBanner = async (req: AuthenticatedRequest, res: Response) => {
+    if (!req.user) return res.status(401).json({ error: 'Unauthorized' })
+
+    try {
+      const file = req.file
+      if (!file) {
+        return res.status(400).json({ error: 'No banner image file uploaded' })
+      }
+
+      const bannerUrl = await uploadFileToFirebase(
+        file.buffer,
+        file.originalname,
+        file.mimetype,
+        'banners',
+        req.user.id
+      )
+
+      const updated = await prisma.profile.update({
+        where: { userId: req.user.id },
+        data: { bannerUrl }
+      })
+
+      res.json({ bannerUrl: updated.bannerUrl })
+    } catch (error) {
+      console.error('Banner upload error:', error)
+      res.status(500).json({ error: 'Internal server error uploading banner' })
+    }
+  }
+
+  // Upload Showcase Media File
+  export const uploadMedia = async (req: AuthenticatedRequest, res: Response) => {
+    if (!req.user) return res.status(401).json({ error: 'Unauthorized' })
+
+    try {
+      const file = req.file
+      if (!file) {
+        return res.status(400).json({ error: 'No file uploaded' })
+      }
+
+      const mediaUrl = await uploadFileToFirebase(
+        file.buffer,
+        file.originalname,
+        file.mimetype,
+        'media',
+        req.user.id
+      )
+
+      res.json({ mediaUrl })
+    } catch (error) {
+      console.error('Media upload error:', error)
+      res.status(500).json({ error: 'Internal server error uploading media file' })
     }
   }
 

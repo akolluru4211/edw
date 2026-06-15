@@ -7,24 +7,10 @@ import path from 'path'
 import fs from 'fs'
 import os from 'os'
 
-// ── Configure multer disk storage ──────────────────────────────────────────
-const isVercel = process.env.VERCEL || process.env.NOW_BUILDER;
-const uploadsDir = isVercel
-  ? path.join(os.tmpdir(), 'uploads', 'resumes')
-  : path.join(process.cwd(), 'uploads', 'resumes')
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true })
-}
+import { uploadFileToFirebase } from '../lib/storage'
 
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, uploadsDir),
-  filename: (req: any, file, cb) => {
-    const userId = req.user?.id || 'anon'
-    const ext = path.extname(file.originalname)
-    const safeName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_')
-    cb(null, `${userId}_${Date.now()}_${safeName}`)
-  }
-})
+// ── Configure multer memory storage ──────────────────────────────────────────
+const storage = multer.memoryStorage()
 
 const fileFilter = (_req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
   const allowed = ['.pdf', '.docx', '.doc']
@@ -43,7 +29,7 @@ export const upload = multer({
 })
 
 // ── ATS Analysis helper ─────────────────────────────────────────────────────
-async function analyzeResume(userId: string, fileName: string) {
+async function analyzeResume(userId: string, fileName: string, fileBuffer: Buffer) {
   const profile = await prisma.profile.findUnique({
     where: { userId },
     include: { skills: true }
@@ -51,9 +37,13 @@ async function analyzeResume(userId: string, fileName: string) {
 
   const userSkills = profile?.skills.map(s => s.name.toLowerCase()) || []
 
+  // Direct text search in binary string of file buffer
+  const bufferStr = fileBuffer.toString('binary').toLowerCase()
   const atsKeywords = ['javascript', 'typescript', 'python', 'react', 'node', 'sql', 'git', 'docker', 'ci/cd', 'system design']
-  const matched = atsKeywords.filter(kw => userSkills.includes(kw))
-  const missing = atsKeywords.filter(kw => !userSkills.includes(kw))
+  
+  // Matched if in user's profile skills OR found in resume buffer text
+  const matched = atsKeywords.filter(kw => userSkills.includes(kw) || bufferStr.includes(kw))
+  const missing = atsKeywords.filter(kw => !matched.includes(kw))
 
   const baseScore = 40
   const skillBonus = Math.min(matched.length * 6, 36)
@@ -84,10 +74,16 @@ export const uploadResume = async (req: AuthenticatedRequest, res: Response) => 
       return res.status(400).json({ error: 'No file uploaded. Please select a PDF or DOCX file.' })
     }
 
-    // Build a local URL path so the file can be served/downloaded
-    const fileUrl = `/uploads/resumes/${file.filename}`
+    // Upload to Firebase Storage (falls back to local filesystem under resumes/ folder)
+    const fileUrl = await uploadFileToFirebase(
+      file.buffer,
+      file.originalname,
+      file.mimetype,
+      'resumes',
+      req.user.id
+    )
 
-    const { atsScore, keywordReport } = await analyzeResume(req.user.id, file.originalname)
+    const { atsScore, keywordReport } = await analyzeResume(req.user.id, file.originalname, file.buffer)
 
     const newResume = await prisma.resume.create({
       data: {

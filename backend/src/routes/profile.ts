@@ -12,7 +12,10 @@ import {
   addExperience,
   deleteExperience,
   uploadAvatar,
+  uploadBanner,
+  uploadMedia,
   avatarUpload,
+  mediaUpload,
   getBirthdays,
   getPointsStatus,
   redeemPoints
@@ -22,6 +25,8 @@ import { authenticateToken } from '../middlewares/auth'
 const router = Router()
 
 router.post('/avatar', authenticateToken, avatarUpload.single('avatar'), uploadAvatar)
+router.post('/banner', authenticateToken, avatarUpload.single('banner'), uploadBanner)
+router.post('/media', authenticateToken, mediaUpload.single('file'), uploadMedia)
 
 router.get('/points/status', authenticateToken, getPointsStatus)
 router.post('/points/redeem', authenticateToken, redeemPoints)

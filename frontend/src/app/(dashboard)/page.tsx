@@ -36,12 +36,14 @@ export default function Dashboard() {
   const [onboardBio, setOnboardBio] = useState('');
   const [onboardHeadline, setOnboardHeadline] = useState('');
   const [onboardFullName, setOnboardFullName] = useState('');
+  const [onboardEmail, setOnboardEmail] = useState('');
   const [onboardSaving, setOnboardSaving] = useState(false);
   const [onboardError, setOnboardError] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
       setOnboardFullName(user.fullName || '');
+      setOnboardEmail(user.email || '');
       setOnboardCollegeName(user.profile?.collegeName === 'GITAM University' ? '' : user.profile?.collegeName || '');
       setOnboardDegree(user.profile?.degree === 'Bachelor of Technology' || user.profile?.degree === 'B.Tech' ? '' : user.profile?.degree || '');
       setOnboardBranch(user.profile?.branch === 'Computer Science and Engineering' || user.profile?.branch === 'CSE' ? '' : user.profile?.branch || '');
@@ -68,8 +70,8 @@ export default function Dashboard() {
     e.preventDefault();
     setOnboardError(null);
     
-    if (!onboardFullName || !onboardCollegeName || !onboardDegree || !onboardBranch || !onboardGraduationYear) {
-      setOnboardError('Please fill in all academic details.');
+    if (!onboardFullName || !onboardEmail || !onboardCollegeName || !onboardDegree || !onboardBranch || !onboardGraduationYear) {
+      setOnboardError('Please fill in all academic and account details.');
       return;
     }
     
@@ -77,6 +79,7 @@ export default function Dashboard() {
     try {
       await api.put('/profile', {
         fullName: onboardFullName,
+        email: onboardEmail,
         collegeName: onboardCollegeName,
         degree: onboardDegree,
         branch: onboardBranch,
@@ -482,6 +485,18 @@ export default function Dashboard() {
                       placeholder="Alice Chen"
                       value={onboardFullName}
                       onChange={(e) => setOnboardFullName(e.target.value)}
+                      className="w-full bg-slate-50 hover:bg-slate-100 focus:bg-white text-xs text-slate-800 rounded-2xl px-4 py-3.5 border border-slate-200 focus:border-sky-300 focus:outline-none transition-all duration-200"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-600 font-semibold text-[10px] uppercase tracking-wider mb-2">Email Address</label>
+                    <input
+                      type="email"
+                      required
+                      placeholder="alice@gmail.com"
+                      value={onboardEmail}
+                      onChange={(e) => setOnboardEmail(e.target.value)}
                       className="w-full bg-slate-50 hover:bg-slate-100 focus:bg-white text-xs text-slate-800 rounded-2xl px-4 py-3.5 border border-slate-200 focus:border-sky-300 focus:outline-none transition-all duration-200"
                     />
                   </div>

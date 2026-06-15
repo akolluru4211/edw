@@ -80,6 +80,7 @@ export const getSuggestions = async (req: AuthenticatedRequest, res: Response) =
           memberId: p.user.memberId,
           publicKey: p.user.publicKey,
           avatarUrl: p.avatarUrl,
+          portfolioUrl: p.portfolioUrl,
           collegeName: p.collegeName,
           degree: p.degree,
           branch: p.branch,

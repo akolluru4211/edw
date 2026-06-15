@@ -7,7 +7,7 @@ import {
   UserCircle, FileText, Briefcase, GraduationCap,
   TrendingUp, ArrowRight, Code, Award, Edit3,
   Camera, Globe, X, Check, Eye, Loader2, Sparkles,
-  Download, Mail
+  Download, Mail, Plus
 } from 'lucide-react';
 import Link from 'next/link';
 import html2canvas from 'html2canvas-pro';
@@ -42,6 +42,153 @@ export default function ProfileHub() {
       console.error('Failed to download ID card:', err);
     } finally {
       setDownloadingCard(false);
+    }
+  };
+
+  // Banner Upload States
+  const [uploadingBanner, setUploadingBanner] = useState(false);
+  const bannerInputRef = useRef<HTMLInputElement>(null);
+
+  // 3D Avatar Tilt State
+  const [tiltStyle, setTiltStyle] = useState<React.CSSProperties>({});
+
+  // Media Showcase Gallery States
+  const [isAddingMedia, setIsAddingMedia] = useState(false);
+  const [mediaTitle, setMediaTitle] = useState('');
+  const [mediaDesc, setMediaDesc] = useState('');
+  const [mediaType, setMediaType] = useState<'image' | 'video' | 'text'>('text');
+  const [mediaFile, setMediaFile] = useState<File | null>(null);
+  const [savingMedia, setSavingMedia] = useState(false);
+  const mediaFileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleBannerSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingBanner(true);
+
+    const formData = new FormData();
+    formData.append('banner', file);
+
+    try {
+      await api.post('/profile/banner', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      await refreshUser();
+      await fetchProfileData();
+    } catch (err: any) {
+      console.error('Failed to upload banner:', err);
+      alert(err.response?.data?.error || 'Failed to upload cover banner.');
+    } finally {
+      setUploadingBanner(false);
+    }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const card = e.currentTarget;
+    const rect = card.getBoundingClientRect();
+    const x = e.clientX - rect.left - rect.width / 2;
+    const y = e.clientY - rect.top - rect.height / 2;
+    const tiltX = (y / (rect.height / 2)) * -15; // 15 deg max
+    const tiltY = (x / (rect.width / 2)) * 15; // 15 deg max
+    
+    setTiltStyle({
+      transform: `perspective(300px) rotateX(${tiltX}deg) rotateY(${tiltY}deg) scale3d(1.05, 1.05, 1.05)`,
+      transition: 'transform 0.1s ease',
+      boxShadow: `${-tiltY * 0.8}px ${tiltX * 0.8}px 25px rgba(14, 165, 233, 0.25)`
+    });
+  };
+
+  const handleMouseLeave = () => {
+    setTiltStyle({
+      transform: 'perspective(300px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)',
+      transition: 'transform 0.5s cubic-bezier(0.25, 1, 0.5, 1)',
+      boxShadow: 'none'
+    });
+  };
+
+  const handleAddMediaItem = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!mediaTitle.trim()) return;
+
+    setSavingMedia(true);
+    try {
+      let url = '';
+      if (mediaType !== 'text' && mediaFile) {
+        const formData = new FormData();
+        formData.append('file', mediaFile);
+        const res = await api.post('/profile/media', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        url = res.data.mediaUrl;
+      }
+
+      let existingItems: any[] = [];
+      if (profileData?.mediaItems) {
+        try {
+          existingItems = typeof profileData.mediaItems === 'string' 
+            ? JSON.parse(profileData.mediaItems) 
+            : profileData.mediaItems;
+          if (!Array.isArray(existingItems)) existingItems = [];
+        } catch {
+          existingItems = [];
+        }
+      }
+
+      const newItem = {
+        id: `media_${Date.now()}`,
+        type: mediaType,
+        title: mediaTitle.trim(),
+        description: mediaDesc.trim(),
+        url: url || undefined,
+        createdAt: new Date().toISOString()
+      };
+
+      const updatedMediaItems = [newItem, ...existingItems];
+
+      await api.put('/profile', {
+        mediaItems: JSON.stringify(updatedMediaItems)
+      });
+
+      await fetchProfileData();
+      
+      // Reset form
+      setMediaTitle('');
+      setMediaDesc('');
+      setMediaType('text');
+      setMediaFile(null);
+      setIsAddingMedia(false);
+    } catch (err: any) {
+      console.error('Failed to add media item:', err);
+      alert(err.response?.data?.error || 'Failed to save showcase gallery item.');
+    } finally {
+      setSavingMedia(false);
+    }
+  };
+
+  const handleDeleteMediaItem = async (itemId: string) => {
+    if (!confirm('Are you sure you want to delete this showcase item?')) return;
+    try {
+      let existingItems: any[] = [];
+      if (profileData?.mediaItems) {
+        try {
+          existingItems = typeof profileData.mediaItems === 'string' 
+            ? JSON.parse(profileData.mediaItems) 
+            : profileData.mediaItems;
+          if (!Array.isArray(existingItems)) existingItems = [];
+        } catch {
+          existingItems = [];
+        }
+      }
+
+      const updated = existingItems.filter(item => item.id !== itemId);
+
+      await api.put('/profile', {
+        mediaItems: JSON.stringify(updated)
+      });
+
+      await fetchProfileData();
+    } catch (err) {
+      console.error('Failed to delete media item:', err);
     }
   };
 
@@ -188,19 +335,59 @@ export default function ProfileHub() {
         className="hidden"
       />
 
+      {/* Hidden file input for banner upload */}
+      <input
+        ref={bannerInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleBannerSelect}
+        className="hidden"
+      />
+
       {/* Profile Header Card */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            {/* Avatar block with upload trigger */}
+      <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm flex flex-col">
+        {/* Banner area */}
+        <div className="h-32 sm:h-44 bg-gradient-to-r from-sky-400 to-blue-600 relative group overflow-hidden shrink-0">
+          {profileData?.bannerUrl ? (
+            <img 
+              src={profileData.bannerUrl.startsWith('http') ? profileData.bannerUrl : `${BACKEND_URL}${profileData.bannerUrl}`} 
+              alt="Profile Cover Banner" 
+              className="w-full h-full object-cover" 
+            />
+          ) : (
+            <div className="w-full h-full opacity-60 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.15),transparent)]" />
+          )}
+          {/* Edit Banner Trigger */}
+          <button
+            onClick={() => bannerInputRef.current?.click()}
+            className="absolute bottom-3 right-3 bg-white/80 hover:bg-white backdrop-blur-md text-slate-700 p-2 rounded-xl border border-slate-200 text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-all"
+            title="Upload cover banner"
+          >
+            <Camera className="h-3.5 w-3.5 text-slate-500" />
+            <span>Update Cover</span>
+          </button>
+          {uploadingBanner && (
+            <div className="absolute inset-0 bg-slate-950/40 flex items-center justify-center">
+              <Loader2 className="h-6 w-6 text-white animate-spin" />
+            </div>
+          )}
+        </div>
+
+        {/* Content area */}
+        <div className="p-6 pt-4 flex flex-col sm:flex-row sm:items-start justify-between gap-6">
+          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 text-center sm:text-left min-w-0">
+            {/* Avatar block with upload trigger + 3D Hover tilt */}
             <div 
               onClick={() => avatarInputRef.current?.click()}
-              className="relative h-20 w-20 rounded-2xl bg-gradient-to-br from-sky-500 to-blue-600 text-white font-black text-2xl flex items-center justify-center shadow-lg shrink-0 cursor-pointer overflow-hidden group select-none"
+              onMouseMove={handleMouseMove}
+              onMouseLeave={handleMouseLeave}
+              style={{ ...tiltStyle, zIndex: 10 }}
+              className="relative -mt-12 sm:-mt-16 h-20 w-20 sm:h-24 sm:w-24 rounded-2xl bg-gradient-to-br from-sky-500 to-blue-600 text-white font-black text-2xl sm:text-3xl flex items-center justify-center shadow-lg shrink-0 cursor-pointer overflow-hidden group select-none border-4 border-white"
               title="Click to change profile photo"
             >
-              {user?.profile?.avatarUrl ? (
+              {profileData?.avatarUrl ? (
                 <img 
-                  src={`${BACKEND_URL}${user.profile.avatarUrl}`} 
+                  src={profileData.avatarUrl.startsWith('http') ? profileData.avatarUrl : `${BACKEND_URL}${profileData.avatarUrl}`} 
                   alt="Avatar" 
                   className="h-full w-full object-cover" 
                   crossOrigin="anonymous"
@@ -219,30 +406,34 @@ export default function ProfileHub() {
                 </div>
               )}
             </div>
-            <div>
-              <h1 className="text-xl font-black text-slate-900">{user?.fullName}</h1>
-              <p className="text-xs text-slate-500 mt-0.5 font-medium">
+
+            {/* Info details */}
+            <div className="min-w-0 flex-1 space-y-1">
+              <h1 className="text-xl font-black text-slate-900 break-words">{user?.fullName}</h1>
+              <p className="text-xs text-slate-500 font-medium break-words leading-relaxed max-w-lg">
                 {profileData?.headline || 'Add a professional headline to stand out'}
               </p>
+              
               {user?.profile?.collegeName && (
-                <div className="flex items-center gap-1.5 text-slate-400 text-xs mt-1.5">
+                <div className="flex items-center gap-1.5 text-slate-400 text-xs mt-1.5 flex-wrap justify-center sm:justify-start">
                   <GraduationCap className="h-3.5 w-3.5 text-sky-500 shrink-0" />
-                  <span>{user.profile.degree} in {user.profile.branch} · {user.profile.collegeName}</span>
+                  <span className="break-words text-left">{user.profile.degree} in {user.profile.branch} · {user.profile.collegeName}</span>
                 </div>
               )}
               {user?.email && (
-                <div className="flex items-center gap-1.5 text-slate-400 text-xs mt-1.5">
+                <div className="flex items-center gap-1.5 text-slate-400 text-xs mt-1.5 flex-wrap justify-center sm:justify-start">
                   <Mail className="h-3.5 w-3.5 text-sky-500 shrink-0" />
-                  <span>{user.email}</span>
+                  <span className="break-all">{user.email}</span>
                 </div>
               )}
               {user?.phoneNumber && (
-                <div className="flex items-center gap-1.5 text-slate-400 text-xs mt-1.5">
+                <div className="flex items-center gap-1.5 text-slate-400 text-xs mt-1.5 justify-center sm:justify-start">
                   <span className="text-sm shrink-0">📞</span>
                   <span>{user.phoneNumber}</span>
                 </div>
               )}
-              <div className="flex items-center gap-2 mt-2 flex-wrap">
+              
+              <div className="flex items-center gap-2 mt-3 flex-wrap justify-center sm:justify-start">
                 <span className="inline-block text-xs font-bold text-sky-700 bg-sky-50 border border-sky-200 px-2.5 py-0.5 rounded-full uppercase">
                   {user?.role}
                 </span>
@@ -265,7 +456,8 @@ export default function ProfileHub() {
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+
+          <div className="flex items-center gap-2 shrink-0 self-center sm:self-start justify-center w-full sm:w-auto">
             <button
               onClick={openEditModal}
               className="inline-flex items-center gap-2 bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-700 px-4 py-2.5 rounded-xl font-semibold text-sm transition-colors"
@@ -282,7 +474,7 @@ export default function ProfileHub() {
           </div>
         </div>
         {avatarError && (
-          <p className="text-xs text-red-600 mt-2 font-medium">{avatarError}</p>
+          <p className="text-xs text-red-600 p-6 pt-0 mt-0 font-medium text-center sm:text-left">{avatarError}</p>
         )}
       </div>
 
@@ -341,6 +533,89 @@ export default function ProfileHub() {
                   </div>
                 </div>
               )}
+            </div>
+
+            {/* Showcase / Media Gallery */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4.5 w-4.5 text-sky-600 font-semibold" />
+                  <h2 className="font-bold text-slate-900 text-base">Showcase Gallery</h2>
+                </div>
+                <button
+                  onClick={() => setIsAddingMedia(true)}
+                  className="bg-sky-50 border border-sky-200 hover:bg-sky-100 text-sky-700 px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1 shadow-sm transition-all"
+                >
+                  <Plus className="h-3.5 w-3.5" /> Add Showcase Item
+                </button>
+              </div>
+
+              {/* Media gallery items list */}
+              {(() => {
+                let items: any[] = [];
+                if (profileData?.mediaItems) {
+                  try {
+                    items = typeof profileData.mediaItems === 'string'
+                      ? JSON.parse(profileData.mediaItems)
+                      : profileData.mediaItems;
+                  } catch {
+                    items = [];
+                  }
+                }
+
+                if (!Array.isArray(items) || items.length === 0) {
+                  return (
+                    <div className="text-center py-8 border border-dashed border-slate-200 rounded-xl">
+                      <Sparkles className="h-8 w-8 text-slate-250 mx-auto mb-2 text-slate-300" />
+                      <p className="text-slate-400 text-sm">No photos, videos, or showcase posts added yet.</p>
+                      <button
+                        onClick={() => setIsAddingMedia(true)}
+                        className="text-sky-600 text-xs font-semibold mt-2 hover:underline inline-flex items-center gap-0.5"
+                      >
+                        Add your first showcase item →
+                      </button>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {items.map((item: any) => (
+                      <div key={item.id} className="border border-slate-100 rounded-2xl p-4 bg-slate-50/30 flex flex-col justify-between gap-3 relative group">
+                        <button
+                          onClick={() => handleDeleteMediaItem(item.id)}
+                          className="absolute top-2.5 right-2.5 h-6 w-6 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                          title="Delete showcase item"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+
+                        <div className="space-y-2">
+                          {item.type === 'image' && item.url && (
+                            <img
+                              src={item.url.startsWith('http') ? item.url : `${BACKEND_URL}${item.url}`}
+                              alt={item.title}
+                              className="w-full h-32 object-cover rounded-xl border border-slate-200"
+                            />
+                          )}
+                          {item.type === 'video' && item.url && (
+                            <video
+                              src={item.url.startsWith('http') ? item.url : `${BACKEND_URL}${item.url}`}
+                              controls
+                              className="w-full h-32 object-cover rounded-xl border border-slate-200"
+                            />
+                          )}
+                          <h4 className="font-bold text-sm text-slate-900 break-words pr-5">{item.title}</h4>
+                          <p className="text-xs text-slate-550 leading-relaxed break-words">{item.description}</p>
+                        </div>
+                        <span className="text-[10px] text-slate-400 font-semibold self-start uppercase tracking-wider">
+                          {item.type} · {new Date(item.createdAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Experience */}
@@ -670,7 +945,7 @@ export default function ProfileHub() {
                 <div className="relative h-14 w-14 rounded-xl bg-slate-200 overflow-hidden flex items-center justify-center shrink-0 border border-slate-300">
                   {user?.profile?.avatarUrl ? (
                     <img 
-                      src={`${BACKEND_URL}${user.profile.avatarUrl}`} 
+                      src={user.profile.avatarUrl.startsWith('http') ? user.profile.avatarUrl : `${BACKEND_URL}${user.profile.avatarUrl}`} 
                       alt="Avatar" 
                       className="h-full w-full object-cover" 
                       crossOrigin="anonymous"
@@ -820,6 +1095,105 @@ export default function ProfileHub() {
                   className="px-5 py-2.5 bg-sky-600 hover:bg-sky-700 text-white text-sm font-semibold rounded-xl transition-colors"
                 >
                   Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* 🖼️ Add Showcase Media Modal */}
+      {isAddingMedia && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+          <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-scale-in">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4.5 w-4.5 text-sky-500" />
+                <h3 className="font-black text-slate-900 text-sm">Add Showcase Item</h3>
+              </div>
+              <button 
+                onClick={() => setIsAddingMedia(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors"
+              >
+                <X className="h-4.5 w-4.5" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleAddMediaItem} className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Item Title</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. My Hackathon Demo Project"
+                  value={mediaTitle}
+                  onChange={e => setMediaTitle(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-sky-500 focus:bg-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Description</label>
+                <textarea
+                  rows={3}
+                  required
+                  placeholder="Describe what this showcase item demonstrates..."
+                  value={mediaDesc}
+                  onChange={e => setMediaDesc(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-sky-500 focus:bg-white resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Showcase Type</label>
+                <select
+                  value={mediaType}
+                  onChange={e => {
+                    setMediaType(e.target.value as any);
+                    setMediaFile(null);
+                  }}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-sky-500 focus:bg-white"
+                >
+                  <option value="text">Text / Case Study Only</option>
+                  <option value="image">Image Attachment</option>
+                  <option value="video">Video Attachment</option>
+                </select>
+              </div>
+
+              {mediaType !== 'text' && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                    Upload {mediaType === 'image' ? 'Image' : 'Video'} File
+                  </label>
+                  <input
+                    ref={mediaFileInputRef}
+                    type="file"
+                    required
+                    accept={mediaType === 'image' ? 'image/*' : 'video/*'}
+                    onChange={e => setMediaFile(e.target.files?.[0] || null)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-sky-500 focus:bg-white"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Max size: 20MB. Supported: JPG, PNG, WEBP, GIF, MP4, MOV, WEBM.
+                  </p>
+                </div>
+              )}
+
+              <div className="flex items-center gap-3 justify-end pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  disabled={savingMedia}
+                  onClick={() => setIsAddingMedia(false)}
+                  className="px-4 py-2.5 border border-slate-200 text-slate-700 text-sm font-semibold rounded-xl hover:bg-slate-50 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingMedia || !mediaTitle.trim()}
+                  className="px-5 py-2.5 bg-sky-600 hover:bg-sky-700 text-white text-sm font-semibold rounded-xl transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {savingMedia && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {savingMedia ? 'Saving...' : 'Add to Showcase'}
                 </button>
               </div>
             </form>

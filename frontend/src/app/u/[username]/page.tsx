@@ -77,6 +77,58 @@ function Interactive3DCard({ children, className = '' }: { children: React.React
   );
 }
 
+function PublicAvatar3DCard({ profile, initials }: { profile: any; initials: string }) {
+  const [tiltStyle, setTiltStyle] = useState<React.CSSProperties>({});
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const card = e.currentTarget;
+    const rect = card.getBoundingClientRect();
+    const x = e.clientX - rect.left - rect.width / 2;
+    const y = e.clientY - rect.top - rect.height / 2;
+    const tiltX = (y / (rect.height / 2)) * -15; // 15 deg max
+    const tiltY = (x / (rect.width / 2)) * 15; // 15 deg max
+    
+    setTiltStyle({
+      transform: `perspective(300px) rotateX(${tiltX}deg) rotateY(${tiltY}deg) scale3d(1.05, 1.05, 1.05)`,
+      transition: 'transform 0.1s ease',
+      boxShadow: `${-tiltY * 0.8}px ${tiltX * 0.8}px 25px rgba(14, 165, 233, 0.25)`
+    });
+  };
+
+  const handleMouseLeave = () => {
+    setTiltStyle({
+      transform: 'perspective(300px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)',
+      transition: 'transform 0.5s cubic-bezier(0.25, 1, 0.5, 1)',
+      boxShadow: 'none'
+    });
+  };
+
+  const avatarUrl = profile.avatarUrl || profile.user?.profile?.avatarUrl;
+  const avatarSrc = avatarUrl
+    ? (avatarUrl.startsWith('http') ? avatarUrl : `${BACKEND_URL}${avatarUrl}`)
+    : null;
+
+  return (
+    <div 
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+      style={{ ...tiltStyle, zIndex: 10 }}
+      className="relative -mt-12 sm:-mt-16 h-20 w-20 sm:h-24 sm:w-24 rounded-2xl bg-gradient-to-br from-sky-500 to-blue-600 text-white font-black text-2xl sm:text-3xl flex items-center justify-center shadow-lg shrink-0 overflow-hidden select-none border-4 border-white cursor-default"
+    >
+      {avatarSrc ? (
+        <img 
+          src={avatarSrc} 
+          alt="Avatar" 
+          className="h-full w-full object-cover" 
+          crossOrigin="anonymous"
+        />
+      ) : (
+        <span>{initials}</span>
+      )}
+    </div>
+  );
+}
+
 // 2. Custom SVG Area Line Chart Component (Light Mode)
 function CareerProgressionChart({ readinessScore }: { readinessScore: number }) {
   const points = [20, 42, 58, 72, readinessScore];
@@ -314,48 +366,67 @@ export default function PublicPortfolio({ params }: PublicPortfolioProps) {
           </span>
         </div>
 
-        {/* Header Banner Card with Neon Highlight */}
-        <div className="bg-white/80 backdrop-blur-xl border border-slate-200/80 rounded-3xl p-6 md:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden shadow-sm shadow-slate-100/40">
-          <div className="absolute top-0 left-0 right-0 h-[2.5px] bg-gradient-to-r from-sky-400 via-indigo-500 to-purple-500"></div>
-          
-          <div className="flex items-center gap-5">
-            <div className="h-20 w-20 rounded-full bg-gradient-to-tr from-pink-500 via-purple-600 to-indigo-600 text-white font-black text-2xl flex items-center justify-center shadow-lg shadow-purple-500/20 border border-purple-400/10 shrink-0">
-              {profile.user?.fullName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
-            </div>
-            <div className="min-w-0">
-              <h1 className="text-2xl md:text-3xl font-black tracking-tight leading-none bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-955 bg-clip-text text-transparent">
-                {profile.user?.fullName}
-              </h1>
-              <p className="text-slate-600 text-xs font-semibold mt-2 flex items-center gap-1.5">
-                <GraduationCap className="h-4 w-4 text-sky-600 shrink-0" />
-                <span className="truncate">{profile.degree} in {profile.branch}</span>
-              </p>
-              <p className="text-slate-500 text-[11px] font-semibold mt-1">
-                {profile.collegeName} · <span className="text-indigo-600 font-bold">Class of {profile.graduationYear}</span>
-              </p>
-            </div>
+        {/* Header Card */}
+        <div className="bg-white/80 backdrop-blur-xl border border-slate-200/80 rounded-3xl overflow-hidden shadow-sm shadow-slate-100/40 flex flex-col">
+          {/* Banner area */}
+          <div className="h-32 sm:h-44 bg-gradient-to-r from-sky-400 to-blue-600 relative overflow-hidden shrink-0">
+            {profile.bannerUrl ? (
+              <img 
+                src={profile.bannerUrl.startsWith('http') ? profile.bannerUrl : `${BACKEND_URL}${profile.bannerUrl}`} 
+                alt="Profile Cover Banner" 
+                className="w-full h-full object-cover" 
+              />
+            ) : (
+              <div className="w-full h-full opacity-60 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.15),transparent)]" />
+            )}
           </div>
 
-          {/* Contact panel */}
-          <div className="flex flex-col gap-2.5 text-xs text-slate-500 font-semibold border-t md:border-t-0 md:border-l border-slate-200 pt-4 md:pt-0 md:pl-6 shrink-0">
-            <div className="flex items-center gap-2 hover:text-slate-900 transition-colors cursor-pointer">
-              <Mail className="h-4 w-4 text-sky-500" />
-              <span>{profile.user?.email}</span>
+          {/* Content area */}
+          <div className="p-6 pt-4 flex flex-col sm:flex-row sm:items-start justify-between gap-6">
+            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 text-center sm:text-left min-w-0">
+              {/* Avatar block with 3D Hover tilt */}
+              <PublicAvatar3DCard profile={profile} initials={profile.user?.fullName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)} />
+              
+              <div className="min-w-0 flex-1 space-y-1">
+                <h1 className="text-2xl md:text-3xl font-black tracking-tight leading-none bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-955 bg-clip-text text-transparent break-words">
+                  {profile.user?.fullName}
+                </h1>
+                <p className="text-slate-600 text-xs font-semibold mt-2 flex items-center gap-1.5 justify-center sm:justify-start">
+                  <GraduationCap className="h-4 w-4 text-sky-600 shrink-0" />
+                  <span className="break-words text-left">{profile.degree} in {profile.branch}</span>
+                </p>
+                <p className="text-slate-500 text-[11px] font-semibold mt-1 break-words">
+                  {profile.collegeName} · <span className="text-indigo-600 font-bold">Class of {profile.graduationYear}</span>
+                </p>
+                {profile.headline && (
+                  <p className="text-xs text-slate-550 leading-relaxed font-semibold break-words mt-1">
+                    {profile.headline}
+                  </p>
+                )}
+              </div>
             </div>
-            {profile.user?.phoneNumber && (
-              <div className="flex items-center gap-2 hover:text-slate-900 transition-colors cursor-pointer">
-                <Phone className="h-4 w-4 text-indigo-500" />
-                <span>{profile.user?.phoneNumber}</span>
+
+            {/* Contact panel */}
+            <div className="flex flex-col gap-2.5 text-xs text-slate-500 font-semibold border-t md:border-t-0 md:border-l border-slate-200 pt-4 md:pt-0 md:pl-6 shrink-0 text-center sm:text-left">
+              <div className="flex items-center justify-center sm:justify-start gap-2 hover:text-slate-900 transition-colors cursor-pointer">
+                <Mail className="h-4 w-4 text-sky-500" />
+                <span className="break-all">{profile.user?.email}</span>
               </div>
-            )}
-            {profile.user?.memberId && (
-              <div className="flex items-center gap-2">
-                <span className="text-[8px] font-extrabold uppercase text-slate-400 tracking-wider">Member ID:</span>
-                <span className="text-[10px] font-mono text-indigo-600 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded">
-                  {profile.user.memberId}
-                </span>
-              </div>
-            )}
+              {profile.user?.phoneNumber && (
+                <div className="flex items-center justify-center sm:justify-start gap-2 hover:text-slate-900 transition-colors cursor-pointer">
+                  <Phone className="h-4 w-4 text-indigo-500" />
+                  <span className="break-all">{profile.user?.phoneNumber}</span>
+                </div>
+              )}
+              {profile.user?.memberId && (
+                <div className="flex items-center justify-center sm:justify-start gap-2">
+                  <span className="text-[8px] font-extrabold uppercase text-slate-400 tracking-wider">Member ID:</span>
+                  <span className="text-[10px] font-mono text-indigo-600 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded">
+                    {profile.user.memberId}
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -365,7 +436,7 @@ export default function PublicPortfolio({ params }: PublicPortfolioProps) {
           {/* About Column */}
           <Interactive3DCard className="lg:col-span-2 space-y-4">
             <h2 className="text-[10px] font-extrabold text-indigo-600 uppercase tracking-widest border-b border-slate-100 pb-2">About Candidate</h2>
-            <p className="text-xs text-slate-600 font-semibold leading-relaxed whitespace-pre-line">
+            <p className="text-xs text-slate-600 font-semibold leading-relaxed whitespace-pre-line break-words">
               {profile.bio || 'This student has not written a summary statement yet.'}
             </p>
 
@@ -424,13 +495,19 @@ export default function PublicPortfolio({ params }: PublicPortfolioProps) {
                 {/* Body info */}
                 <div className="flex-1 flex gap-4 items-center mt-3 z-10 min-w-0">
                   <div className="h-16 w-16 rounded-xl border border-white/20 bg-slate-800/80 overflow-hidden flex items-center justify-center shrink-0 shadow-lg">
-                    {profile.user?.profile?.avatarUrl ? (
-                      <img src={`${BACKEND_URL}${profile.user.profile.avatarUrl}`} alt="Avatar" className="h-full w-full object-cover" crossOrigin="anonymous" />
-                    ) : (
-                      <span className="font-black text-xl text-sky-400">
-                        {profile.user?.fullName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
-                      </span>
-                    )}
+                    {(() => {
+                      const avatarUrl = profile.avatarUrl || profile.user?.profile?.avatarUrl;
+                      const avatarSrc = avatarUrl
+                        ? (avatarUrl.startsWith('http') ? avatarUrl : `${BACKEND_URL}${avatarUrl}`)
+                        : null;
+                      return avatarSrc ? (
+                        <img src={avatarSrc} alt="Avatar" className="h-full w-full object-cover" crossOrigin="anonymous" />
+                      ) : (
+                        <span className="font-black text-xl text-sky-400">
+                          {profile.user?.fullName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
+                        </span>
+                      );
+                    })()}
                   </div>
                   <div className="min-w-0 flex-1 space-y-1">
                     <h3 className="font-black text-base tracking-tight truncate text-white">{profile.user?.fullName}</h3>
@@ -573,6 +650,63 @@ export default function PublicPortfolio({ params }: PublicPortfolioProps) {
                 </div>
               )}
             </Interactive3DCard>
+
+            {/* Showcase / Media Gallery */}
+            {(() => {
+              let items: any[] = [];
+              if (profile.mediaItems) {
+                try {
+                  items = typeof profile.mediaItems === 'string'
+                    ? JSON.parse(profile.mediaItems)
+                    : profile.mediaItems;
+                } catch {
+                  items = [];
+                }
+              }
+
+              if (!Array.isArray(items) || items.length === 0) {
+                return null;
+              }
+
+              return (
+                <Interactive3DCard className="space-y-6">
+                  <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
+                    <div className="p-2 bg-indigo-50 border border-indigo-100 rounded-2xl shrink-0 shadow-[0_0_15px_rgba(99,102,241,0.05)]">
+                      <Sparkles className="h-5 w-5 text-indigo-500" />
+                    </div>
+                    <h2 className="text-slate-900 font-black text-base tracking-tight">Showcase Gallery</h2>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {items.map((item: any) => (
+                      <div key={item.id} className="border border-slate-100 rounded-2xl p-4 bg-slate-50/30 flex flex-col justify-between gap-3 relative">
+                        <div className="space-y-2">
+                          {item.type === 'image' && item.url && (
+                            <img
+                              src={item.url.startsWith('http') ? item.url : `${BACKEND_URL}${item.url}`}
+                              alt={item.title}
+                              className="w-full h-32 object-cover rounded-xl border border-slate-200"
+                            />
+                          )}
+                          {item.type === 'video' && item.url && (
+                            <video
+                              src={item.url.startsWith('http') ? item.url : `${BACKEND_URL}${item.url}`}
+                              controls
+                              className="w-full h-32 object-cover rounded-xl border border-slate-200"
+                            />
+                          )}
+                          <h4 className="font-bold text-sm text-slate-900 break-words">{item.title}</h4>
+                          <p className="text-xs text-slate-550 leading-relaxed break-words">{item.description}</p>
+                        </div>
+                        <span className="text-[10px] text-slate-400 font-semibold self-start uppercase tracking-wider">
+                          {item.type} · {new Date(item.createdAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </Interactive3DCard>
+              );
+            })()}
 
             {/* Projects */}
             <Interactive3DCard className="space-y-6">
