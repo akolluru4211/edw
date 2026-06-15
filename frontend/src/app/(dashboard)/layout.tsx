@@ -85,7 +85,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   // Global Chatbot States
   const [chatOpen, setChatOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState<any[]>([
-    { role: 'assistant', content: "Hi! I am Alex, your AI Career Coach. Ask me anything about career roadmaps, resume feedback, or interview prep!" }
+    { role: 'assistant', content: "Hello! I am Alex, your career mentor. Ask me anything about building career study roadmaps, optimizing resumes, or preparing for mock interviews." }
   ]);
   const [chatInput, setChatInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
@@ -176,7 +176,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const startNewGlobalChat = () => {
     setChatSessionId(null);
     setChatMessages([
-      { role: 'assistant', content: "Hi! I am Alex, your AI Career Coach. Ask me anything about career roadmaps, resume feedback, or interview prep!" }
+      { role: 'assistant', content: "Hello! I am Alex, your career mentor. Ask me anything about building career study roadmaps, optimizing resumes, or preparing for mock interviews." }
     ]);
   };
 

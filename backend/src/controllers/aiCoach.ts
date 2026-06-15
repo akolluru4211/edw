@@ -14,24 +14,28 @@ export const sendChatMessage = async (req: AuthenticatedRequest, res: Response) 
   try {
     const profile = await prisma.profile.findUnique({
       where: { userId: req.user.id },
-      include: { skills: true }
+      include: { 
+        skills: true,
+        user: { select: { fullName: true } }
+      }
     })
 
     const userSkills = profile?.skills.map(s => s.name).join(', ') || 'None'
     const headline = profile?.headline || 'CS Student'
+    const firstName = profile?.user?.fullName ? profile.user.fullName.split(' ')[0] : 'there'
 
     // Formulate a response based on keywords
     let reply = ''
     const text = message.toLowerCase()
 
     if (text.includes('resume') || text.includes('parse') || text.includes('ats')) {
-      reply = `Hello ${req.user.email}! I reviewed your headline (${headline}) and skills (${userSkills}). I recommend adding **CI/CD** and **Docker** to pass automated corporate ATS resume parsers. Head over to the **Resume** tab to run a scanner audit!`
+      reply = `Hello ${firstName}. I reviewed your profile details and skills (${userSkills}). To optimize your resume for applicant tracking systems, I suggest emphasizing your experience with CI/CD pipelines and containerization tools. You can test your current score and get detailed suggestions in our Resume scanner section.`
     } else if (text.includes('interview') || text.includes('mock') || text.includes('grade')) {
-      reply = `Let's begin a mock interview session! I have mapped your profile to standard junior questions. Let's start with a behavioral: \n\n*"Tell me about a time you solved a complex algorithm glitch under pressure. How did you structure your approach?"*`
+      reply = `I would be happy to help you practice. I have tailored some relevant behavioral and technical interview questions based on your background. Let's start with this scenario: Describe a challenging technical issue you encountered in a recent project. What was your process for diagnosing and resolving it?`
     } else if (text.includes('roadmap') || text.includes('learn') || text.includes('path')) {
-      reply = `Based on your goal, I recommend a 3-week study roadmap:\n\n* **Week 1**: State Architecture & advanced frameworks (Vue/React).\n* **Week 2**: SQL & NoSQL backend database replication.\n* **Week 3**: Mock behavioral interviews and algorithmic complexity drills.`
+      reply = `Here is a structured study outline to help you prepare over the next few weeks: In the first week, focus on core architecture patterns and framework-specific advanced concepts. During the second week, dedicate time to database replication, schema optimization, and API design. Finally, in the third week, practice system design problems and behavioral storytelling using the STAR method.`
     } else {
-      reply = `Hello! I am Alex, your AI Career Coach. I can help with resume reviews, career roadmaps, or mock interview questions. What would you like to build or discuss today?`
+      reply = `Hello! I am Alex, your career mentor. I can assist you with optimizing your resume, constructing tailored study roadmaps, or running mock interview practice. What aspect of your career development would you like to focus on today?`
     }
 
     const savedChat = await prisma.$transaction(async (tx) => {
