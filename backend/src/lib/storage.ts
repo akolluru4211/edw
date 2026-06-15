@@ -15,7 +15,7 @@ export const uploadFileToFirebase = async (
   userId: string
 ): Promise<string> => {
   try {
-    const bucketName = 'edworld-career-os-2026.appspot.com';
+    const bucketName = 'edworld-career-os-2026.firebasestorage.app';
     const bucket = getStorage().bucket(bucketName);
     const ext = path.extname(originalName);
     const cleanName = originalName.replace(/[^a-zA-Z0-9._-]/g, '_');
@@ -28,7 +28,7 @@ export const uploadFileToFirebase = async (
       }
     });
 
-    return new Promise<string>((resolve, reject) => {
+    const publicUrl = await new Promise<string>((resolve, reject) => {
       blobStream.on('error', (error) => {
         reject(error);
       });
@@ -48,6 +48,8 @@ export const uploadFileToFirebase = async (
 
       blobStream.end(fileBuffer);
     });
+
+    return publicUrl;
   } catch (error: any) {
     console.warn('Firebase storage upload failed, falling back to local file write:', error.message);
     

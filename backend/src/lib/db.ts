@@ -627,6 +627,7 @@ class CollectionClient {
 
 // Prisma compatibility class matching standard API properties
 class PrismaFirestoreClient {
+  _db = firestoreDb;
   user = new CollectionClient('users');
   profile = new CollectionClient('profiles');
   resume = new CollectionClient('resumes');
