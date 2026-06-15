@@ -4911,10 +4911,10 @@ Sincerely,
             <p style="font-size:15px; font-weight:700; color:#555; margin-top:16px;">Selected Best Projects & Structured Skills Development Until 2026</p>
           </div>
           
-          <!-- RIGHT IMAGE FRAME (Offset Yellow Backdrop) -->
-          <div class="right-image-frame" style="display:flex; justify-content:center; align-items:center; position:relative;">
+          <!-- RIGHT IMAGE FRAME (Offset Yellow Backdrop with 3D Tilt Effect) -->
+          <div class="right-image-frame portfolio-3d-avatar-container" style="display:flex; justify-content:center; align-items:center; position:relative;">
             <div style="position:absolute; width:220px; height:220px; background:#F5A623; border-radius:50%; border:2px solid #1A1A1A; top:10px; right:10px; z-index:1;"></div>
-            <div style="width:230px; height:270px; border:3px solid #1A1A1A; background:#FFF; border-radius:16px; overflow:hidden; z-index:2; position:relative; box-shadow: 6px 6px 0px #1A1A1A; display:flex; align-items:center; justify-content:center; padding:12px;">
+            <div class="portfolio-3d-avatar-frame" style="width:230px; height:270px; border:3px solid #1A1A1A; background:#FFF; border-radius:16px; overflow:hidden; z-index:2; position:relative; box-shadow: 6px 6px 0px #1A1A1A; display:flex; align-items:center; justify-content:center; padding:12px;">
               <img src="${u.avatar}" style="width:100%; height:100%; object-fit:cover; border-radius:8px; filter: grayscale(100%) contrast(110%);" />
             </div>
           </div>

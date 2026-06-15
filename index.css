@@ -3445,3 +3445,16 @@ button, input, textarea, select {
   }
 }
 
+/* 3D Tilt Avatar Container Effect */
+.portfolio-3d-avatar-container {
+  perspective: 1000px;
+}
+.portfolio-3d-avatar-frame {
+  transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1), box-shadow 0.3s ease;
+  transform-style: preserve-3d;
+}
+.portfolio-3d-avatar-frame:hover {
+  transform: rotateX(10deg) rotateY(10deg) scale3d(1.04, 1.04, 1.04);
+  box-shadow: 10px 10px 0px #1A1A1A, 0px 15px 30px rgba(0, 0, 0, 0.15);
+}
+
