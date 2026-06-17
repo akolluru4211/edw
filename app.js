@@ -997,6 +997,25 @@
   // ==========================================
   let onboardSkills = [];
 
+  // Maps Firebase auth error codes to user-friendly messages
+  function getAuthErrorMessage(code) {
+    const messages = {
+      'auth/invalid-credential': 'Invalid email or password. Please check your credentials or register a new account.',
+      'auth/user-not-found': 'No account found with this email. Please register first.',
+      'auth/wrong-password': 'Incorrect password. Please try again.',
+      'auth/email-already-in-use': 'An account with this email already exists. Try signing in instead.',
+      'auth/weak-password': 'Password is too weak. Use at least 6 characters.',
+      'auth/invalid-email': 'Please enter a valid email address.',
+      'auth/too-many-requests': 'Too many failed attempts. Please wait a moment and try again.',
+      'auth/network-request-failed': 'Network error. Please check your internet connection.',
+      'auth/popup-closed-by-user': 'Sign-in popup was closed. Please try again.',
+      'auth/account-exists-with-different-credential': 'An account already exists with this email using a different sign-in method.',
+      'auth/operation-not-allowed': 'This sign-in method is not enabled. Please contact support.',
+      'auth/user-disabled': 'This account has been disabled. Please contact support.'
+    };
+    return messages[code] || 'Authentication failed. Please try again.';
+  }
+
   function checkAuth() {
     // Listen for Firebase Auth changes
     auth.onAuthStateChanged(async (firebaseUser) => {
@@ -1129,28 +1148,32 @@
       const email = document.getElementById('login-email').value.trim();
       const password = document.getElementById('login-password').value;
       
+      if (!email || !password) {
+        showToast("Please enter both email and password.", "warning");
+        return;
+      }
+      
       if (authMode === 'register') {
+        if (password.length < 6) {
+          showToast("Password must be at least 6 characters.", "warning");
+          return;
+        }
         try {
           await auth.createUserWithEmailAndPassword(email, password);
           showToast("Account created! Set up your profile.", "success");
         } catch (signUpErr) {
-          showToast(signUpErr.message, "danger");
+          const msg = getAuthErrorMessage(signUpErr.code);
+          showToast(msg, "danger");
         }
       } else {
         try {
           await auth.signInWithEmailAndPassword(email, password);
           showToast("Signed in successfully!", "success");
         } catch (err) {
-          if (err.code === 'auth/user-not-found') {
-            try {
-              await auth.createUserWithEmailAndPassword(email, password);
-              showToast("Account created! Set up your profile.", "success");
-            } catch (signUpErr) {
-              showToast(signUpErr.message, "danger");
-            }
-          } else {
-            showToast(err.message, "danger");
-          }
+          // Firebase v10+ returns 'auth/invalid-credential' instead of 
+          // 'auth/user-not-found' or 'auth/wrong-password' for security
+          const msg = getAuthErrorMessage(err.code);
+          showToast(msg, "danger");
         }
       }
     };
@@ -1173,7 +1196,7 @@
       showToast(`Authenticated via ${providerName}!`, "success");
     } catch (err) {
       console.error(`${providerName} login error`, err);
-      showToast(`Authentication failed: ${err.message}`, "danger");
+      showToast(getAuthErrorMessage(err.code), "danger");
     }
   }
 
