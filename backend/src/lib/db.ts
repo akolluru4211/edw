@@ -4,23 +4,32 @@ import { getAuth } from 'firebase-admin/auth';
 import path from 'path';
 import fs from 'fs';
 
-function findServiceAccount(): string | null {
-  // 1. FIREBASE_SERVICE_ACCOUNT env var (highest priority)
-  if (process.env.FIREBACK_SERVICE_ACCOUNT || process.env.FIREBASE_SERVICE_ACCOUNT) {
-    const raw = process.env.FIREBASE_SERVICE_ACCOUNT || process.env.FIREBACK_SERVICE_ACCOUNT;
-    return raw!;
+function findServiceAccount(): Record<string, any> | null {
+  // 1. FIREBASE_SERVICE_ACCOUNT env var
+  if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+    try {
+      return JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+    } catch (e: any) {
+      console.error('Failed to parse FIREBASE_SERVICE_ACCOUNT env var:', e.message);
+    }
   }
 
   // 2. Search multiple possible paths for service-account.json
   const candidates = [
     path.join(process.cwd(), 'service-account.json'),
     path.join(process.cwd(), 'backend', 'service-account.json'),
+    path.join(__dirname, '..', '..', 'service-account.json'),
     path.join(__dirname, '..', '..', '..', 'service-account.json'),
   ];
 
   for (const p of candidates) {
     if (fs.existsSync(p)) {
-      return fs.readFileSync(p, 'utf8');
+      try {
+        console.log(`Firebase Admin SDK: found service account at ${p}`);
+        return JSON.parse(fs.readFileSync(p, 'utf8'));
+      } catch (e: any) {
+        console.error(`Failed to parse ${p}:`, e.message);
+      }
     }
   }
 
@@ -30,24 +39,22 @@ function findServiceAccount(): string | null {
 const PROJECT_ID = 'edworld-career-os-2026';
 
 if (getApps().length === 0) {
-  const raw = findServiceAccount();
+  const serviceAccount = findServiceAccount();
 
-  if (raw) {
+  if (serviceAccount) {
     try {
-      const serviceAccount = JSON.parse(raw);
-      console.log(`Firebase Admin SDK: initialized with credential for ${serviceAccount.client_email || serviceAccount.project_id}`);
+      console.log(`Firebase Admin SDK: initializing with credential for ${serviceAccount.client_email || serviceAccount.project_id}`);
       initializeApp({
         credential: cert(serviceAccount),
         projectId: serviceAccount.project_id || PROJECT_ID
       });
     } catch (err: any) {
-      console.error('Failed to parse service account credentials:', err.message);
-      console.log('Falling back to project-only initialization (limited functionality)');
+      console.error('Failed to initialize with service account:', err.message);
       initializeApp({ projectId: PROJECT_ID });
     }
   } else {
-    console.warn('No service account found. Firebase Auth verification will fail.');
-    console.warn('Set FIREBASE_SERVICE_ACCOUNT env var or place service-account.json in the project root.');
+    console.warn('No service account found! Firebase Auth will not work.');
+    console.warn('Place service-account.json in the backend/ folder.');
     initializeApp({ projectId: PROJECT_ID });
   }
 }
