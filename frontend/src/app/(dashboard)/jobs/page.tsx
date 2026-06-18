@@ -52,11 +52,12 @@ export default function OpportunitiesHub() {
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
+  const [applyingId, setApplyingId] = useState<string | null>(null);
+  const [applyError, setApplyError] = useState<string | null>(null);
+  const [tab, setTab] = useState<'browse' | 'pipeline'>('browse');
   const [typeFilter, setTypeFilter] = useState('');
   const [companyTypeFilter, setCompanyTypeFilter] = useState('');
   const [remoteOnly, setRemoteOnly] = useState(false);
-  const [tab, setTab] = useState<'browse' | 'pipeline'>('browse');
-  const [applyingId, setApplyingId] = useState<string | null>(null);
   const [expandedReason, setExpandedReason] = useState<Record<string, boolean>>({});
 
   const fetchOps = async () => {
@@ -88,7 +89,8 @@ export default function OpportunitiesHub() {
       fetchOps(); fetchApps();
       await refreshUser();
     } catch (e: any) {
-      alert(e.response?.data?.error || 'Could not apply. Please try again.');
+      setApplyError('Could not apply. Please try again.');
+      setTimeout(() => setApplyError(null), 4000);
     } finally { setApplyingId(null); }
   };
 
@@ -110,6 +112,9 @@ export default function OpportunitiesHub() {
 
   return (
     <div className="space-y-6">
+      {applyError && (
+        <div className="bg-red-50 border border-red-200 text-red-600 text-xs font-semibold p-3 rounded-xl">{applyError}</div>
+      )}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>

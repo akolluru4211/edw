@@ -24,8 +24,12 @@ app.use(cors())
 app.use(express.json({ limit: '10mb' }))
 app.use(express.urlencoded({ extended: true }))
 
-// Serve uploaded files (resumes, etc.) as static assets
-app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')))
+// Serve uploaded files (resumes, etc.) as static assets with caching
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads'), {
+  maxAge: '30d',
+  etag: true,
+  lastModified: true
+}))
 
 // API Routes
 app.use('/api/auth', authRoutes)

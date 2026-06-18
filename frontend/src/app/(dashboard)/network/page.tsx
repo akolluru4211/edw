@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { api, BACKEND_URL } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
+import { getImageUrl } from '@/lib/image';
 import {
   Users, MessageSquare, UserPlus, Send, GraduationCap,
   RefreshCw, Check, Clock, X, ChevronLeft, Lock, Sparkles, MapPin, Compass
@@ -183,7 +184,7 @@ export default function NetworkingHub() {
             return { ...m, decryptedText: plaintext };
           } catch (err) {
             console.error('Failed to decrypt message:', err);
-            return { ...m, decryptedText: '[Decryption Error]' };
+            return { ...m, decryptedText: '[Encrypted message]' };
           }
         }
         return { ...m, decryptedText: m.text };
@@ -402,9 +403,10 @@ export default function NetworkingHub() {
                     <Link href={`/u/${peer.portfolioUrl || peer.id}`} target="_blank" className="hover:opacity-85 transition-opacity shrink-0">
                       {peer.avatarUrl ? (
                         <img
-                          src={peer.avatarUrl.startsWith('http') ? peer.avatarUrl : `${BACKEND_URL}${peer.avatarUrl}`}
+                          src={getImageUrl(peer.avatarUrl, BACKEND_URL)}
                           alt={peer.fullName}
                           className="h-12 w-12 rounded-2xl object-cover border border-slate-100"
+                          loading="lazy"
                         />
                       ) : (
                         <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-sky-500 via-blue-500 to-blue-600 text-white font-black text-base flex items-center justify-center shadow-sm shadow-blue-500/10">
@@ -524,7 +526,7 @@ export default function NetworkingHub() {
                     </button>
                     {chatTarget.avatarUrl ? (
                       <img
-                        src={chatTarget.avatarUrl.startsWith('http') ? chatTarget.avatarUrl : `${BACKEND_URL}${chatTarget.avatarUrl}`}
+                        src={getImageUrl(chatTarget.avatarUrl, BACKEND_URL)}
                         alt={chatTarget.fullName}
                         className="h-9 w-9 rounded-full object-cover shrink-0 border border-slate-150"
                       />

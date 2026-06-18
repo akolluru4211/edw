@@ -6,6 +6,8 @@ import { useNotifications } from '@/context/NotificationContext';
 import { api, BACKEND_URL } from '@/lib/api';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
+import GlobalChatbot from '@/components/GlobalChatbot';
+import { getImageUrl } from '@/lib/image';
 import { 
   LayoutDashboard, 
   MessageSquareCode, 
@@ -21,18 +23,12 @@ import {
   Menu,
   X, 
   Bell, 
-  BellDot,
   TrendingUp,
   FolderGit,
   ChevronRight,
-  Send,
-  Bot,
-  Sparkles,
-  Plus,
-  MessageSquare,
-  Globe,
   Coins,
-  Award
+  Award,
+  Sparkles
 } from 'lucide-react';
 
 interface DashboardLayoutProps {
@@ -82,16 +78,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [showSplash, setShowSplash] = useState(true);
   const [fadeSplash, setFadeSplash] = useState(false);
 
-  // Global Chatbot States
-  const [chatOpen, setChatOpen] = useState(false);
-  const [chatMessages, setChatMessages] = useState<any[]>([
-    { role: 'assistant', content: "Hello! I am Alex, your career mentor. Ask me anything about building career study roadmaps, optimizing resumes, or preparing for mock interviews." }
-  ]);
-  const [chatInput, setChatInput] = useState('');
-  const [chatLoading, setChatLoading] = useState(false);
-  const [chatSessionId, setChatSessionId] = useState<string | null>(null);
-
-
   useEffect(() => {
     if (!loading) {
       if (!user) {
@@ -116,23 +102,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     }
   }, [loading]);
 
-  // Fetch latest chat session if user is logged in
-  useEffect(() => {
-    if (user) {
-      api.get('/ai-coach/history')
-        .then(res => {
-          if (res.data && res.data.length > 0) {
-            const latest = res.data[0];
-            setChatSessionId(latest.id);
-            if (latest.messages && latest.messages.length > 0) {
-              setChatMessages(latest.messages);
-            }
-          }
-        })
-        .catch(console.error);
-    }
-  }, [user]);
-
   // Close notif popover on outside click
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
@@ -148,37 +117,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   useEffect(() => {
     setSidebarOpen(false);
   }, [pathname]);
-
-  const sendGlobalChatMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!chatInput.trim() || chatLoading) return;
-    const msg = chatInput.trim();
-    setChatInput('');
-    setChatLoading(true);
-
-    const userMsg = { role: 'user', content: msg };
-    setChatMessages(prev => [...prev, userMsg]);
-
-    try {
-      const res = await api.post('/ai-coach/chat', {
-        chatId: chatSessionId || undefined,
-        message: msg
-      });
-      setChatSessionId(res.data.chatId);
-      setChatMessages(res.data.messages);
-    } catch (err) {
-      console.error('Failed to send global chat message:', err);
-    } finally {
-      setChatLoading(false);
-    }
-  };
-
-  const startNewGlobalChat = () => {
-    setChatSessionId(null);
-    setChatMessages([
-      { role: 'assistant', content: "Hello! I am Alex, your career mentor. Ask me anything about building career study roadmaps, optimizing resumes, or preparing for mock interviews." }
-    ]);
-  };
 
   // Splash Screen Display
   if (showSplash || loading) {
@@ -215,9 +153,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     : navGroups;
 
   const userInitials = user.fullName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2);
-  const avatarSrc = user.profile?.avatarUrl
-    ? (user.profile.avatarUrl.startsWith('http') ? user.profile.avatarUrl : `${BACKEND_URL}${user.profile.avatarUrl}`)
-    : null;
+  const avatarSrc = getImageUrl(user.profile?.avatarUrl, BACKEND_URL) || null;
 
   return (
     <div className="flex h-screen w-screen min-h-0 overflow-hidden bg-slate-50">
@@ -548,101 +484,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       </nav>
 
 
-      {/* ─── Floating Global Chatbot Bubble & Drawer ─── */}
-      {!isAdmin && (
-        <div className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] md:bottom-[calc(1.5rem+env(safe-area-inset-bottom,0px))] right-4 md:right-[calc(1.5rem+env(safe-area-inset-right,0px))] z-40 flex flex-col items-end">
-          {chatOpen && (
-            <div className="mb-4 w-[320px] xs:w-96 max-w-[calc(100vw-2rem)] h-[400px] xs:h-[460px] bg-white border border-slate-200 rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-scale-in">
-              {/* Chat Header */}
-              <div className="bg-sky-600 text-white px-4 py-3.5 flex items-center justify-between shrink-0">
-                <div className="flex items-center gap-2">
-                  <div className="h-8 w-8 bg-sky-500 rounded-lg flex items-center justify-center">
-                    <Bot className="h-4.5 w-4.5 text-white" />
-                  </div>
-                  <div>
-                    <p className="font-bold text-xs">Alex, Career Coach</p>
-                    <p className="text-[10px] text-sky-100 flex items-center gap-1">
-                      <span className="h-1.5 w-1.5 bg-emerald-400 rounded-full animate-pulse" /> Online
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <button
-                    onClick={startNewGlobalChat}
-                    title="Reset Conversation"
-                    className="p-1 hover:bg-sky-700 text-sky-100 hover:text-white rounded-lg transition-colors"
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    onClick={() => setChatOpen(false)}
-                    className="p-1 hover:bg-sky-700 text-sky-100 hover:text-white rounded-lg transition-colors"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Chat Messages */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-3.5 bg-slate-50/50">
-                {chatMessages.map((m, idx) => (
-                  <div key={idx} className={`flex gap-2 max-w-[85%] ${m.role === 'user' ? 'flex-row-reverse ml-auto' : ''}`}>
-                    <div className={`h-7 w-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 select-none ${
-                      m.role === 'user' ? 'bg-sky-600 text-white' : 'bg-sky-100 text-sky-700'
-                    }`}>
-                      {m.role === 'user' ? 'Me' : 'AI'}
-                    </div>
-                    <div className={`p-2.5 rounded-xl text-xs leading-relaxed whitespace-pre-wrap ${
-                      m.role === 'user'
-                        ? 'bg-sky-600 text-white rounded-tr-none'
-                        : 'bg-white border border-slate-200 text-slate-800 rounded-tl-none'
-                    }`}>
-                      {m.content}
-                    </div>
-                  </div>
-                ))}
-                {chatLoading && (
-                  <div className="flex gap-2 max-w-xs">
-                    <div className="h-7 w-7 rounded-full bg-sky-100 text-sky-700 text-[10px] font-bold flex items-center justify-center select-none">AI</div>
-                    <div className="p-2.5 rounded-xl bg-white border border-slate-200 flex items-center gap-1">
-                      {[0, 150, 300].map(d => (
-                        <span key={d} className="h-1.5 w-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: `${d}ms` }} />
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Chat Input */}
-              <form onSubmit={sendGlobalChatMessage} className="p-3 border-t border-slate-200 bg-white shrink-0 flex items-center gap-2">
-                <input
-                  type="text"
-                  value={chatInput}
-                  onChange={e => setChatInput(e.target.value)}
-                  placeholder="Ask Alex for guidance..."
-                  className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:border-sky-500 focus:bg-white"
-                />
-                <button
-                  type="submit"
-                  disabled={chatLoading || !chatInput.trim()}
-                  className="p-2 bg-sky-600 hover:bg-sky-700 disabled:bg-slate-100 text-white disabled:text-slate-400 rounded-xl transition-colors shrink-0"
-                >
-                  <Send className="h-3.5 w-3.5" />
-                </button>
-              </form>
-            </div>
-          )}
-
-          {/* Floating Bubble Icon */}
-          <button
-            onClick={() => setChatOpen(!chatOpen)}
-            title="Career Coach Chat"
-            className="h-10 w-10 xs:h-12 xs:w-12 bg-sky-600 hover:bg-sky-700 text-white rounded-full shadow-2xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 shrink-0 group focus:outline-none focus:ring-2 focus:ring-sky-500/20"
-          >
-            {chatOpen ? <X className="h-5 w-5" /> : <MessageSquare className="h-5 w-5 animate-pulse" />}
-          </button>
-        </div>
-      )}
+      {/* ─── Floating Global Chatbot ─── */}
+      <GlobalChatbot />
     </div>
   );
 }

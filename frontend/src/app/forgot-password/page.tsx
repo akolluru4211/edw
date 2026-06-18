@@ -29,7 +29,14 @@ export default function ForgotPassword() {
       setSuccess(response.data.message || 'Password reset link sent!');
       setLinkSent(true);
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to send recovery link. Please verify your email.');
+      const msg = err.response?.data?.error || '';
+      if (msg.toLowerCase().includes('not exist')) {
+        setError('No account found with this email address.');
+      } else if (msg.toLowerCase().includes('network') || (err.message || '').toLowerCase().includes('failed to fetch')) {
+        setError('Unable to connect. Please check your internet connection and try again.');
+      } else {
+        setError('Failed to send recovery link. Please try again.');
+      }
     } finally {
       setLoading(false);
     }

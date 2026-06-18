@@ -94,7 +94,12 @@ export default function Dashboard() {
       await refreshUser();
     } catch (err: any) {
       console.error(err);
-      setOnboardError(err.response?.data?.error || err.message || 'Onboarding failed to save.');
+      const msg = err.response?.data?.error || '';
+      if (msg.toLowerCase().includes('network') || (err.message || '').toLowerCase().includes('failed to fetch')) {
+        setOnboardError('Unable to connect. Please check your internet and try again.');
+      } else {
+        setOnboardError('Failed to save. Please try again.');
+      }
     } finally {
       setOnboardSaving(false);
     }

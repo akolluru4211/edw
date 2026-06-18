@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { api, BACKEND_URL } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
+import { compressImage, getImageUrl, addCacheBuster } from '@/lib/image';
 import {
   UserCircle, FileText, Briefcase, GraduationCap,
   TrendingUp, ArrowRight, Code, Award, Edit3,
@@ -61,15 +62,21 @@ export default function ProfileHub() {
   const [savingMedia, setSavingMedia] = useState(false);
   const mediaFileInputRef = useRef<HTMLInputElement>(null);
 
+  const [previewBanner, setPreviewBanner] = useState<string | null>(null);
+  const [previewAvatar, setPreviewAvatar] = useState<string | null>(null);
+
   const handleBannerSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setUploadingBanner(true);
 
-    const formData = new FormData();
-    formData.append('banner', file);
+    const previewUrl = URL.createObjectURL(file);
+    setPreviewBanner(previewUrl);
 
     try {
+      const compressed = await compressImage(file, 1600, 0.82);
+      const formData = new FormData();
+      formData.append('banner', compressed);
       await api.post('/profile/banner', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
@@ -77,9 +84,10 @@ export default function ProfileHub() {
       await fetchProfileData();
     } catch (err: any) {
       console.error('Failed to upload banner:', err);
-      alert(err.response?.data?.error || 'Failed to upload cover banner.');
+      setPreviewBanner(null);
     } finally {
       setUploadingBanner(false);
+      URL.revokeObjectURL(previewUrl);
     }
   };
 
@@ -159,7 +167,6 @@ export default function ProfileHub() {
       setIsAddingMedia(false);
     } catch (err: any) {
       console.error('Failed to add media item:', err);
-      alert(err.response?.data?.error || 'Failed to save showcase gallery item.');
     } finally {
       setSavingMedia(false);
     }
@@ -283,10 +290,13 @@ export default function ProfileHub() {
     setUploadingAvatar(true);
     setAvatarError(null);
 
-    const formData = new FormData();
-    formData.append('avatar', file);
+    const previewUrl = URL.createObjectURL(file);
+    setPreviewAvatar(previewUrl);
 
     try {
+      const compressed = await compressImage(file, 800, 0.85);
+      const formData = new FormData();
+      formData.append('avatar', compressed);
       await api.post('/profile/avatar', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
@@ -295,8 +305,10 @@ export default function ProfileHub() {
     } catch (err: any) {
       console.error('Failed to upload avatar:', err);
       setAvatarError(err.response?.data?.error || 'Failed to upload photo.');
+      setPreviewAvatar(null);
     } finally {
       setUploadingAvatar(false);
+      URL.revokeObjectURL(previewUrl);
     }
   };
 
@@ -348,11 +360,12 @@ export default function ProfileHub() {
       <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm flex flex-col">
         {/* Banner area */}
         <div className="h-32 sm:h-44 bg-gradient-to-r from-sky-400 to-blue-600 relative group overflow-hidden shrink-0">
-          {profileData?.bannerUrl ? (
+          {(previewBanner || profileData?.bannerUrl) ? (
             <img 
-              src={profileData.bannerUrl.startsWith('http') ? profileData.bannerUrl : `${BACKEND_URL}${profileData.bannerUrl}`} 
+              src={addCacheBuster(previewBanner || getImageUrl(profileData?.bannerUrl, BACKEND_URL))} 
               alt="Profile Cover Banner" 
-              className="w-full h-full object-cover" 
+              className="w-full h-full object-cover transition-opacity duration-300" 
+              loading="lazy"
             />
           ) : (
             <div className="w-full h-full opacity-60 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.15),transparent)]" />
@@ -385,12 +398,11 @@ export default function ProfileHub() {
               className="relative -mt-12 sm:-mt-16 h-20 w-20 sm:h-24 sm:w-24 rounded-2xl bg-gradient-to-br from-sky-500 to-blue-600 text-white font-black text-2xl sm:text-3xl flex items-center justify-center shadow-lg shrink-0 cursor-pointer overflow-hidden group select-none border-4 border-white"
               title="Click to change profile photo"
             >
-              {profileData?.avatarUrl ? (
+              {(previewAvatar || profileData?.avatarUrl) ? (
                 <img 
-                  src={profileData.avatarUrl.startsWith('http') ? profileData.avatarUrl : `${BACKEND_URL}${profileData.avatarUrl}`} 
+                  src={addCacheBuster(previewAvatar || getImageUrl(profileData?.avatarUrl, BACKEND_URL))} 
                   alt="Avatar" 
-                  className="h-full w-full object-cover" 
-                  crossOrigin="anonymous"
+                  className="h-full w-full object-cover transition-opacity duration-300" 
                 />
               ) : (
                 <span>{initials}</span>
@@ -593,15 +605,17 @@ export default function ProfileHub() {
                         <div className="space-y-2">
                           {item.type === 'image' && item.url && (
                             <img
-                              src={item.url.startsWith('http') ? item.url : `${BACKEND_URL}${item.url}`}
+                              src={getImageUrl(item.url, BACKEND_URL)}
                               alt={item.title}
                               className="w-full h-32 object-cover rounded-xl border border-slate-200"
+                              loading="lazy"
                             />
                           )}
                           {item.type === 'video' && item.url && (
                             <video
-                              src={item.url.startsWith('http') ? item.url : `${BACKEND_URL}${item.url}`}
+                              src={getImageUrl(item.url, BACKEND_URL)}
                               controls
+                              preload="metadata"
                               className="w-full h-32 object-cover rounded-xl border border-slate-200"
                             />
                           )}
@@ -945,7 +959,7 @@ export default function ProfileHub() {
                 <div className="relative h-14 w-14 rounded-xl bg-slate-200 overflow-hidden flex items-center justify-center shrink-0 border border-slate-300">
                   {user?.profile?.avatarUrl ? (
                     <img 
-                      src={user.profile.avatarUrl.startsWith('http') ? user.profile.avatarUrl : `${BACKEND_URL}${user.profile.avatarUrl}`} 
+                      src={getImageUrl(user.profile.avatarUrl, BACKEND_URL)} 
                       alt="Avatar" 
                       className="h-full w-full object-cover" 
                       crossOrigin="anonymous"

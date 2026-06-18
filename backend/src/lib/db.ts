@@ -3,50 +3,52 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import path from 'path';
 import fs from 'fs';
-import crypto from 'crypto';
 
-// Initialize Firebase Admin SDK
-// Follows standard ADC lookup order:
-// 1. FIREBASE_SERVICE_ACCOUNT env var (explicit JSON, for CI/production)
-// 2. service-account.json file in cwd (local explicit key)
-// 3. ADC chain: GOOGLE_APPLICATION_CREDENTIALS env var,
-//    gcloud auth application-default login, or GCE/Cloud Run metadata server
-if (getApps().length === 0) {
-  const serviceAccountPath = path.join(process.cwd(), 'service-account.json');
+function findServiceAccount(): string | null {
+  // 1. FIREBASE_SERVICE_ACCOUNT env var (highest priority)
+  if (process.env.FIREBACK_SERVICE_ACCOUNT || process.env.FIREBASE_SERVICE_ACCOUNT) {
+    const raw = process.env.FIREBASE_SERVICE_ACCOUNT || process.env.FIREBACK_SERVICE_ACCOUNT;
+    return raw!;
+  }
 
-  if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-    console.log('Initializing Firebase Admin SDK using FIREBASE_SERVICE_ACCOUNT environment variable...');
-    try {
-      const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-      initializeApp({
-        credential: cert(serviceAccount),
-        projectId: serviceAccount.project_id || 'edworld-career-os-2026'
-      });
-    } catch (err: any) {
-      console.error('Failed to parse FIREBASE_SERVICE_ACCOUNT environment variable:', err.message);
-      initializeApp({
-        projectId: 'edworld-career-os-2026'
-      });
+  // 2. Search multiple possible paths for service-account.json
+  const candidates = [
+    path.join(process.cwd(), 'service-account.json'),
+    path.join(process.cwd(), 'backend', 'service-account.json'),
+    path.join(__dirname, '..', '..', '..', 'service-account.json'),
+  ];
+
+  for (const p of candidates) {
+    if (fs.existsSync(p)) {
+      return fs.readFileSync(p, 'utf8');
     }
-  } else if (fs.existsSync(serviceAccountPath)) {
-    console.log('Initializing Firebase Admin SDK using service-account.json key...');
+  }
+
+  return null;
+}
+
+const PROJECT_ID = 'edworld-career-os-2026';
+
+if (getApps().length === 0) {
+  const raw = findServiceAccount();
+
+  if (raw) {
     try {
-      const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
+      const serviceAccount = JSON.parse(raw);
+      console.log(`Firebase Admin SDK: initialized with credential for ${serviceAccount.client_email || serviceAccount.project_id}`);
       initializeApp({
         credential: cert(serviceAccount),
-        projectId: 'edworld-career-os-2026'
+        projectId: serviceAccount.project_id || PROJECT_ID
       });
     } catch (err: any) {
-      console.error('Failed to parse service-account.json key:', err.message);
-      initializeApp({
-        projectId: 'edworld-career-os-2026'
-      });
+      console.error('Failed to parse service account credentials:', err.message);
+      console.log('Falling back to project-only initialization (limited functionality)');
+      initializeApp({ projectId: PROJECT_ID });
     }
   } else {
-    console.log('Initializing Firebase Admin SDK using Application Default Credentials (ADC)...');
-    initializeApp({
-      projectId: 'edworld-career-os-2026'
-    });
+    console.warn('No service account found. Firebase Auth verification will fail.');
+    console.warn('Set FIREBASE_SERVICE_ACCOUNT env var or place service-account.json in the project root.');
+    initializeApp({ projectId: PROJECT_ID });
   }
 }
 
@@ -648,6 +650,7 @@ class PrismaFirestoreClient {
   passwordResetOTP = new CollectionClient('passwordResetOTPs');
   pointTransaction = new CollectionClient('pointTransactions');
   ambassadorApplication = new CollectionClient('ambassadorApplications');
+  ad = new CollectionClient('ads');
 
   async $transaction(fn: (tx: any) => Promise<any>) {
     return await fn(this);

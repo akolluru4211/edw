@@ -3,15 +3,11 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
-import { signInWithPopup } from 'firebase/auth';
+import { signInWithPopup, signInWithRedirect, getRedirectResult, browserPopupRedirectResolver } from 'firebase/auth';
 import { auth, googleProvider, githubProvider } from '@/lib/firebase';
 import {
-  generateE2EKeys,
-  deriveAesKey,
-  encryptPrivateKey,
-  decryptPrivateKey,
-  exportKeyToJwk,
-  importKeyFromJwk
+  generateE2EKeys, deriveAesKey, encryptPrivateKey, decryptPrivateKey,
+  exportKeyToJwk, importKeyFromJwk
 } from '@/lib/crypto';
 
 export interface User {
@@ -35,8 +31,8 @@ export interface User {
     branch: string;
     graduationYear: number;
     headline?: string;
-    interests: string; // JSON string in SQLite
-    goals: string; // JSON string in SQLite
+    interests: string;
+    goals: string;
     readinessScore: number;
     bio?: string;
     avatarUrl?: string;
@@ -61,6 +57,41 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function generateSalt(): string {
+  const saltBuffer = window.crypto.getRandomValues(new Uint8Array(16));
+  let binary = '';
+  for (let i = 0; i < saltBuffer.byteLength; i++) binary += String.fromCharCode(saltBuffer[i]);
+  return window.btoa(binary);
+}
+
+async function setupE2EEKeys(
+  passphrase: string,
+  apiFn: (data: any) => Promise<any>,
+  loggedUser: any
+) {
+  const saltBase64 = generateSalt();
+  const aesKey = await deriveAesKey(passphrase, saltBase64);
+  const keys = await generateE2EKeys();
+  const encrypted = await encryptPrivateKey(keys.privateKeyBase64, aesKey);
+
+  await apiFn({
+    publicKey: keys.publicKeyBase64,
+    encryptedPrivateKey: encrypted.encryptedPrivateKeyBase64,
+    keySalt: saltBase64,
+    keyIv: encrypted.ivBase64
+  });
+
+  const jwkStr = await exportKeyToJwk(keys.privateKeyCrypto);
+  sessionStorage.setItem('edworld_private_key', jwkStr);
+
+  loggedUser.publicKey = keys.publicKeyBase64;
+  loggedUser.encryptedPrivateKey = encrypted.encryptedPrivateKeyBase64;
+  loggedUser.keySalt = saltBase64;
+  loggedUser.keyIv = encrypted.ivBase64;
+
+  return keys.privateKeyCrypto;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [decryptedPrivateKey, setDecryptedPrivateKey] = useState<CryptoKey | null>(null);
@@ -79,7 +110,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const response = await api.get('/auth/me');
       setUser(response.data);
 
-      // Restore decrypted private key from sessionStorage if available
       const cachedJwk = sessionStorage.getItem('edworld_private_key');
       if (cachedJwk) {
         try {
@@ -91,8 +121,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     } catch (error: any) {
       console.error('Failed to restore session:', error);
-      // Only clear credentials if we got an explicit 401 or 403 response status.
-      // Do not clear the token on network connection errors or server 5xx errors.
       const isSessionExpired = error?.response && (error.response.status === 401 || error.response.status === 403);
       if (isSessionExpired) {
         localStorage.removeItem('edworld_token');
@@ -106,6 +134,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
+    // Handle redirect result from OAuth (fallback for popup blocked)
+    getRedirectResult(auth).then(async (result) => {
+      if (result) {
+        try {
+          const idToken = await result.user.getIdToken();
+          const response = await api.post('/auth/firebase-login', { idToken });
+          const { token, user: loggedUser } = response.data;
+          localStorage.setItem('edworld_token', token);
+
+          if (loggedUser.encryptedPrivateKey && loggedUser.keySalt && loggedUser.keyIv) {
+            const aesKey = await deriveAesKey(loggedUser.id, loggedUser.keySalt);
+            const privateKey = await decryptPrivateKey(loggedUser.encryptedPrivateKey, aesKey, loggedUser.keyIv);
+            const jwkStr = await exportKeyToJwk(privateKey);
+            sessionStorage.setItem('edworld_private_key', jwkStr);
+            setDecryptedPrivateKey(privateKey);
+          } else {
+            const privateKey = await setupE2EEKeys(
+              loggedUser.id,
+              (data) => api.post('/auth/save-keys', data, { headers: { Authorization: `Bearer ${token}` } }),
+              loggedUser
+            );
+            setDecryptedPrivateKey(privateKey);
+          }
+
+          setUser(loggedUser);
+          router.push('/');
+        } catch (error: any) {
+          console.error('Redirect OAuth login failed:', error);
+        }
+      }
+    }).catch(() => {});
+
     refreshUser();
   }, []);
 
@@ -116,54 +176,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { token, user: loggedUser } = response.data;
       localStorage.setItem('edworld_token', token);
 
-      // Decrypt or generate E2EE keys
       if (loggedUser.encryptedPrivateKey && loggedUser.keySalt && loggedUser.keyIv) {
-        // Derive key from login password
         const aesKey = await deriveAesKey(password, loggedUser.keySalt);
-        // Decrypt the private key
-        const privateKey = await decryptPrivateKey(
-          loggedUser.encryptedPrivateKey,
-          aesKey,
-          loggedUser.keyIv
-        );
-        
-        // Cache in sessionStorage
+        const privateKey = await decryptPrivateKey(loggedUser.encryptedPrivateKey, aesKey, loggedUser.keyIv);
         const jwkStr = await exportKeyToJwk(privateKey);
         sessionStorage.setItem('edworld_private_key', jwkStr);
         setDecryptedPrivateKey(privateKey);
       } else {
-        // Legacy user check - generate new E2E keys for them
-        const keys = await generateE2EKeys();
-        const saltBuffer = window.crypto.getRandomValues(new Uint8Array(16));
-        let saltBinary = '';
-        for (let i = 0; i < saltBuffer.byteLength; i++) {
-          saltBinary += String.fromCharCode(saltBuffer[i]);
-        }
-        const saltBase64 = window.btoa(saltBinary);
-        
-        const aesKey = await deriveAesKey(password, saltBase64);
-        const encrypted = await encryptPrivateKey(keys.privateKeyBase64, aesKey);
-        
-        // Save keys on server
-        await api.post('/auth/save-keys', {
-          publicKey: keys.publicKeyBase64,
-          encryptedPrivateKey: encrypted.encryptedPrivateKeyBase64,
-          keySalt: saltBase64,
-          keyIv: encrypted.ivBase64
-        }, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-
-        // Cache in sessionStorage
-        const jwkStr = await exportKeyToJwk(keys.privateKeyCrypto);
-        sessionStorage.setItem('edworld_private_key', jwkStr);
-        setDecryptedPrivateKey(keys.privateKeyCrypto);
-
-        // Update fields in loggedUser for immediate state alignment
-        loggedUser.publicKey = keys.publicKeyBase64;
-        loggedUser.encryptedPrivateKey = encrypted.encryptedPrivateKeyBase64;
-        loggedUser.keySalt = saltBase64;
-        loggedUser.keyIv = encrypted.ivBase64;
+        const privateKey = await setupE2EEKeys(
+          password,
+          (data) => api.post('/auth/save-keys', data, { headers: { Authorization: `Bearer ${token}` } }),
+          loggedUser
+        );
+        setDecryptedPrivateKey(privateKey);
       }
 
       setUser(loggedUser);
@@ -178,36 +203,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const registerUser = async (formData: any) => {
     setLoading(true);
     try {
-      // 1. Generate E2E keys
+      const saltBase64 = generateSalt();
       const keys = await generateE2EKeys();
-      // Generate a random salt for password derivation (base64)
-      const saltBuffer = window.crypto.getRandomValues(new Uint8Array(16));
-      let saltBinary = '';
-      for (let i = 0; i < saltBuffer.byteLength; i++) {
-        saltBinary += String.fromCharCode(saltBuffer[i]);
-      }
-      const saltBase64 = window.btoa(saltBinary);
-
-      // 2. Derive AES key from password
       const aesKey = await deriveAesKey(formData.password, saltBase64);
-
-      // 3. Encrypt the private key
       const encrypted = await encryptPrivateKey(keys.privateKeyBase64, aesKey);
 
-      // 4. Attach keys to the registration data
-      const extendedFormData = {
+      const response = await api.post('/auth/register', {
         ...formData,
         publicKey: keys.publicKeyBase64,
         encryptedPrivateKey: encrypted.encryptedPrivateKeyBase64,
         keySalt: saltBase64,
         keyIv: encrypted.ivBase64
-      };
-
-      const response = await api.post('/auth/register', extendedFormData);
+      });
       const { token, user: registeredUser } = response.data;
       localStorage.setItem('edworld_token', token);
-      
-      // Cache the private key in sessionStorage for reloads
+
       const jwkStr = await exportKeyToJwk(keys.privateKeyCrypto);
       sessionStorage.setItem('edworld_private_key', jwkStr);
       setDecryptedPrivateKey(keys.privateKeyCrypto);
@@ -233,53 +243,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     try {
       const provider = providerName === 'google' ? googleProvider : githubProvider;
-      const result = await signInWithPopup(auth, provider);
+
+      let result;
+      try {
+        result = await signInWithPopup(auth, provider);
+      } catch (popupError: any) {
+        // If popup is blocked or closed, fall back to redirect
+        if (['auth/popup-blocked', 'auth/cancelled-popup-request', 'auth/popup-closed-by-user'].includes(popupError.code)) {
+          await signInWithRedirect(auth, provider);
+          return;
+        }
+        throw popupError;
+      }
+
       const idToken = await result.user.getIdToken();
-      
       const response = await api.post('/auth/firebase-login', { idToken });
       const { token, user: loggedUser } = response.data;
       localStorage.setItem('edworld_token', token);
-      
-      // E2EE Keys Setup for OAuth using user UID as passphrase
+
       if (loggedUser.encryptedPrivateKey && loggedUser.keySalt && loggedUser.keyIv) {
         const aesKey = await deriveAesKey(loggedUser.id, loggedUser.keySalt);
-        const privateKey = await decryptPrivateKey(
-          loggedUser.encryptedPrivateKey,
-          aesKey,
-          loggedUser.keyIv
-        );
+        const privateKey = await decryptPrivateKey(loggedUser.encryptedPrivateKey, aesKey, loggedUser.keyIv);
         const jwkStr = await exportKeyToJwk(privateKey);
         sessionStorage.setItem('edworld_private_key', jwkStr);
         setDecryptedPrivateKey(privateKey);
       } else {
-        const keys = await generateE2EKeys();
-        const saltBuffer = window.crypto.getRandomValues(new Uint8Array(16));
-        let saltBinary = '';
-        for (let i = 0; i < saltBuffer.byteLength; i++) {
-          saltBinary += String.fromCharCode(saltBuffer[i]);
-        }
-        const saltBase64 = window.btoa(saltBinary);
-        
-        const aesKey = await deriveAesKey(loggedUser.id, saltBase64);
-        const encrypted = await encryptPrivateKey(keys.privateKeyBase64, aesKey);
-        
-        await api.post('/auth/save-keys', {
-          publicKey: keys.publicKeyBase64,
-          encryptedPrivateKey: encrypted.encryptedPrivateKeyBase64,
-          keySalt: saltBase64,
-          keyIv: encrypted.ivBase64
-        }, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-
-        const jwkStr = await exportKeyToJwk(keys.privateKeyCrypto);
-        sessionStorage.setItem('edworld_private_key', jwkStr);
-        setDecryptedPrivateKey(keys.privateKeyCrypto);
-
-        loggedUser.publicKey = keys.publicKeyBase64;
-        loggedUser.encryptedPrivateKey = encrypted.encryptedPrivateKeyBase64;
-        loggedUser.keySalt = saltBase64;
-        loggedUser.keyIv = encrypted.ivBase64;
+        const privateKey = await setupE2EEKeys(
+          loggedUser.id,
+          (data) => api.post('/auth/save-keys', data, { headers: { Authorization: `Bearer ${token}` } }),
+          loggedUser
+        );
+        setDecryptedPrivateKey(privateKey);
       }
 
       setUser(loggedUser);
@@ -306,4 +300,3 @@ export function useAuth() {
   }
   return context;
 }
-

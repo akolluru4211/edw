@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, use, useRef } from 'react';
 import { api, BACKEND_URL } from '@/lib/api';
+import { getImageUrl } from '@/lib/image';
 import { 
   GraduationCap, 
   Mail, 
@@ -104,9 +105,7 @@ function PublicAvatar3DCard({ profile, initials }: { profile: any; initials: str
   };
 
   const avatarUrl = profile.avatarUrl || profile.user?.profile?.avatarUrl;
-  const avatarSrc = avatarUrl
-    ? (avatarUrl.startsWith('http') ? avatarUrl : `${BACKEND_URL}${avatarUrl}`)
-    : null;
+  const avatarSrc = getImageUrl(avatarUrl, BACKEND_URL) || null;
 
   return (
     <div 
@@ -285,7 +284,13 @@ export default function PublicPortfolio({ params }: PublicPortfolioProps) {
         setProfile(response.data);
       } catch (err: any) {
         console.error(err);
-        setError('The requested student portfolio could not be found or has been set to private.');
+        if (err.response?.status === 404) {
+          setError('Portfolio not found');
+        } else if (err.response?.status === 403) {
+          setError('This portfolio is private');
+        } else {
+          setError('Unable to load portfolio. Please try again later.');
+        }
       } finally {
         const timer = setTimeout(() => setLoading(false), 500);
         return () => clearTimeout(timer);
@@ -372,9 +377,10 @@ export default function PublicPortfolio({ params }: PublicPortfolioProps) {
           <div className="h-32 sm:h-44 bg-gradient-to-r from-sky-400 to-blue-600 relative overflow-hidden shrink-0">
             {profile.bannerUrl ? (
               <img 
-                src={profile.bannerUrl.startsWith('http') ? profile.bannerUrl : `${BACKEND_URL}${profile.bannerUrl}`} 
+                src={getImageUrl(profile.bannerUrl, BACKEND_URL)} 
                 alt="Profile Cover Banner" 
                 className="w-full h-full object-cover" 
+                loading="lazy"
               />
             ) : (
               <div className="w-full h-full opacity-60 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.15),transparent)]" />
@@ -497,11 +503,9 @@ export default function PublicPortfolio({ params }: PublicPortfolioProps) {
                   <div className="h-16 w-16 rounded-xl border border-white/20 bg-slate-800/80 overflow-hidden flex items-center justify-center shrink-0 shadow-lg">
                     {(() => {
                       const avatarUrl = profile.avatarUrl || profile.user?.profile?.avatarUrl;
-                      const avatarSrc = avatarUrl
-                        ? (avatarUrl.startsWith('http') ? avatarUrl : `${BACKEND_URL}${avatarUrl}`)
-                        : null;
+                      const avatarSrc = getImageUrl(avatarUrl, BACKEND_URL) || null;
                       return avatarSrc ? (
-                        <img src={avatarSrc} alt="Avatar" className="h-full w-full object-cover" crossOrigin="anonymous" />
+                        <img src={avatarSrc} alt="Avatar" className="h-full w-full object-cover" />
                       ) : (
                         <span className="font-black text-xl text-sky-400">
                           {profile.user?.fullName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}

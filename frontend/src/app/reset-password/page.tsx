@@ -53,7 +53,14 @@ function ResetPasswordForm() {
         router.push('/login');
       }, 3000);
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Password reset failed. The link may have expired.');
+      const msg = err.response?.data?.error || '';
+      if (msg.toLowerCase().includes('expired') || msg.toLowerCase().includes('invalid')) {
+        setError('This reset link has expired or is invalid. Please request a new one.');
+      } else if (msg.toLowerCase().includes('password')) {
+        setError('Password does not meet requirements. Please use a stronger password.');
+      } else {
+        setError('Password reset failed. Please try again.');
+      }
     } finally {
       setLoading(false);
     }

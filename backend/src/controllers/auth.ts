@@ -549,34 +549,64 @@ export const firebaseLogin = async (req: Request, res: Response) => {
 
   try {
     const decodedToken = await firebaseAuth.verifyIdToken(idToken)
-    const { email, name, uid } = decodedToken
+    let { email, name, uid } = decodedToken
 
-    let userEmail = email
-    if (!userEmail) {
-      const providerId = decodedToken.firebase?.sign_in_provider || 'oauth'
-      const providerName = providerId.split('.')[0] || 'oauth'
-      userEmail = `${uid}@${providerName}.placeholder.com`
+    // If email is missing from the token (rare but happens with some providers),
+    // fetch the full user record from Firebase Auth to get the real email
+    if (!email) {
+      try {
+        const fbUser = await firebaseAuth.getUser(uid)
+        email = fbUser.email || fbUser.providerData?.[0]?.email || undefined
+        if (!name) name = fbUser.displayName || fbUser.providerData?.[0]?.displayName || undefined
+      } catch (err: any) {
+        console.error('Failed to fetch Firebase user details for email:', err.message)
+      }
     }
 
+    // If still no email, reject — we cannot create a user without a real email
+    if (!email) {
+      return res.status(400).json({ error: 'Could not retrieve email from your Google account. Please ensure your Google account has a verified email address.' })
+    }
+
+    // Check if a user with this email already exists (e.g. registered via email/password)
     let user = await prisma.user.findUnique({
-      where: { id: uid },
+      where: { email },
       include: { profile: true }
     })
 
     let isNewUser = false
-    if (!user) {
+
+    if (user) {
+      // User exists with this email — link the Firebase UID if different
+      if (user.id !== uid) {
+        try {
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { id: uid }
+          })
+          await prisma.profile.update({ where: { userId: user.id }, data: { userId: uid } }).catch(() => {})
+          user.id = uid
+        } catch (err: any) {
+          console.error('Failed to link Firebase UID to existing user:', err.message)
+        }
+      }
+      if (name && (!user.fullName || user.fullName === user.email.split('@')[0])) {
+        await prisma.user.update({ where: { id: uid }, data: { fullName: name } }).catch(() => {})
+        user.fullName = name
+      }
+    } else {
+      // No existing user — create new account with the real Google email
       isNewUser = true
-      // Create user and profile dynamically in transaction if first-time login
-      const namePart = (name || userEmail.split('@')[0]).toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4)
+      const namePart = (name || email.split('@')[0]).toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4)
       const memberId = `EDW-${namePart}-${Math.floor(1000 + Math.random() * 9000)}`
-      const slug = (name || userEmail.split('@')[0]).toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + Math.floor(Math.random() * 1000)
+      const slug = (name || email.split('@')[0]).toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + Math.floor(Math.random() * 1000)
 
       user = await prisma.$transaction(async (tx) => {
         const u = await tx.user.create({
           data: {
             id: uid,
-            email: userEmail,
-            fullName: name || userEmail.split('@')[0],
+            email,
+            fullName: name || email.split('@')[0],
             role: 'STUDENT',
             memberId
           }
@@ -608,26 +638,25 @@ export const firebaseLogin = async (req: Request, res: Response) => {
         return { ...u, profile: p }
       })
 
-      // Log OAuth signup event
       await prisma.dataLog.create({
         data: {
           type: 'OAUTH_SIGNUP',
-          email: userEmail,
+          email,
           ipAddress: req.ip || null,
-          details: `User signed up via OAuth. UID: ${uid}, MemberId: ${memberId}`
+          details: `User signed up via OAuth. UID: ${uid}, MemberId: ${memberId}, Email: ${email}`
         }
       }).catch(err => console.error('Failed to write OAuth signup log:', err))
-    } else {
-      // Log OAuth login success
-      await prisma.dataLog.create({
-        data: {
-          type: 'OAUTH_LOGIN',
-          email: userEmail,
-          ipAddress: req.ip || null,
-          details: `User logged in via OAuth. UID: ${uid}`
-        }
-      }).catch(err => console.error('Failed to write OAuth login log:', err))
     }
+
+    // Log login
+    await prisma.dataLog.create({
+      data: {
+        type: 'OAUTH_LOGIN',
+        email,
+        ipAddress: req.ip || null,
+        details: `User logged in via OAuth. UID: ${uid}, Email: ${email}`
+      }
+    }).catch(err => console.error('Failed to write OAuth login log:', err))
 
     const tokenSecret = process.env.JWT_SECRET || 'fallback_secret'
     const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, tokenSecret, { expiresIn: '7d' })

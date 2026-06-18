@@ -91,12 +91,13 @@ interface AmbassadorApplication {
 export default function AdminConsole() {
   const { user } = useAuth();
   
-  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'transactions' | 'logs' | 'ambassadors'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'transactions' | 'logs' | 'ambassadors' | 'ads'>('overview');
   const [metrics, setMetrics] = useState<AdminMetrics | null>(null);
   const [users, setUsers] = useState<UserAccount[]>([]);
   const [transactions, setTransactions] = useState<PointTransaction[]>([]);
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [ambassadors, setAmbassadors] = useState<AmbassadorApplication[]>([]);
+  const [ads, setAds] = useState<any[]>([]);
   
   const [loading, setLoading] = useState(true);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
@@ -111,7 +112,7 @@ export default function AdminConsole() {
 
   const handleExportExcel = () => {
     if (users.length === 0) {
-      alert("No user records available to export.");
+      setErrorMsg("No user records available to export.");
       return;
     }
 
@@ -190,6 +191,13 @@ export default function AdminConsole() {
       } catch (ambErr) {
         console.error('Failed to fetch ambassador applications:', ambErr);
       }
+
+      try {
+        const adsRes = await api.get('/admin/ads');
+        setAds(adsRes.data);
+      } catch (adsErr) {
+        console.error('Failed to fetch ads:', adsErr);
+      }
     } catch (err: any) {
       console.error(err);
       setErrorMsg('Unauthorized or failed to retrieve administrative controls.');
@@ -205,7 +213,7 @@ export default function AdminConsole() {
       setAmbassadors(prev => prev.map(a => a.id === id ? { ...a, status: newStatus } : a));
     } catch (err) {
       console.error('Failed to update ambassador status:', err);
-      alert('Failed to update application status.');
+      setErrorMsg('Failed to update application status.');
     } finally {
       setActionLoadingId(null);
     }
@@ -265,7 +273,7 @@ export default function AdminConsole() {
 
   const handleDeleteUser = async (userId: string) => {
     if (userId === user.id) {
-      alert("Cannot delete your own admin account.");
+      setErrorMsg("Cannot delete your own admin account.");
       return;
     }
     if (!confirm("Are you sure you want to delete this user? This will cascade delete their profile and resumes.")) return;
@@ -341,7 +349,8 @@ export default function AdminConsole() {
           { id: 'users', label: 'User Accounts', icon: Users },
           { id: 'transactions', label: 'Point Transactions', icon: Coins },
           { id: 'logs', label: 'Activity Audit Logs', icon: Activity },
-          { id: 'ambassadors', label: 'Ambassadors Apply', icon: Award }
+          { id: 'ambassadors', label: 'Ambassadors Apply', icon: Award },
+          { id: 'ads', label: 'Advertisements', icon: Link2 }
         ].map(t => {
           const Icon = t.icon;
           return (
@@ -801,6 +810,107 @@ export default function AdminConsole() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            )}
+          </motion.div>
+        )}
+
+        {activeTab === 'ads' && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-xl font-black text-slate-900">Advertisements</h2>
+                <p className="text-xs text-slate-500 mt-1">Manage ad campaigns submitted by business owners</p>
+              </div>
+              <a href="/ads" target="_blank" className="inline-flex items-center gap-2 bg-sky-600 hover:bg-sky-700 text-white font-semibold text-xs px-4 py-2.5 rounded-xl transition-all">
+                <Plus className="h-3.5 w-3.5" /> View Ad Portal
+              </a>
+            </div>
+
+            {ads.length === 0 ? (
+              <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center">
+                <Link2 className="h-10 w-10 text-slate-200 mx-auto mb-3" />
+                <p className="text-slate-400 text-sm mb-2">No advertisements yet</p>
+                <p className="text-slate-400 text-xs">Ads submitted by business owners will appear here</p>
+              </div>
+            ) : (
+              <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead>
+                      <tr className="border-b border-slate-100 bg-slate-50/50">
+                        <th className="p-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Ad</th>
+                        <th className="p-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Business</th>
+                        <th className="p-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Budget</th>
+                        <th className="p-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Performance</th>
+                        <th className="p-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Status</th>
+                        <th className="p-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
+                      {ads.map(ad => (
+                        <tr key={ad.id} className="hover:bg-slate-50/50 transition-colors">
+                          <td className="p-4">
+                            <div className="flex items-center gap-3">
+                              {ad.imageUrl ? <img src={ad.imageUrl} alt="" className="h-10 w-10 rounded-lg object-cover border border-slate-100" /> : <div className="h-10 w-10 rounded-lg bg-slate-100 flex items-center justify-center"><Link2 className="h-4 w-4 text-slate-400" /></div>}
+                              <div className="min-w-0">
+                                <p className="text-xs font-bold text-slate-900 truncate max-w-[200px]">{ad.title}</p>
+                                <p className="text-[10px] text-slate-400 truncate max-w-[200px]">{ad.description}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="p-4">
+                            <p className="text-xs font-semibold text-slate-700">{ad.businessName}</p>
+                            <p className="text-[10px] text-slate-400">{ad.contactEmail}</p>
+                          </td>
+                          <td className="p-4">
+                            <p className="text-xs font-bold text-slate-700">₹{ad.totalBudget}</p>
+                            <p className="text-[10px] text-slate-400">₹{ad.costPerDay}/day · ₹{ad.costPer100Views}/100 views</p>
+                          </td>
+                          <td className="p-4">
+                            <p className="text-xs font-semibold text-slate-700">{ad.views.toLocaleString()} views</p>
+                            <p className="text-[10px] text-slate-400">{ad.clicks.toLocaleString()} clicks</p>
+                          </td>
+                          <td className="p-4">
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                              ad.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                              ad.status === 'PENDING' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                              ad.status === 'PAUSED' ? 'bg-slate-100 text-slate-600 border-slate-200' :
+                              ad.status === 'REJECTED' ? 'bg-red-50 text-red-600 border-red-200' :
+                              'bg-slate-100 text-slate-500 border-slate-200'
+                            }`}>{ad.status}</span>
+                          </td>
+                          <td className="p-4 pr-6 text-right">
+                            <div className="flex gap-1 justify-end">
+                              {ad.status === 'PENDING' && (
+                                <button onClick={async () => { await api.put(`/admin/ads/${ad.id}/status`, { status: 'ACTIVE' }); fetchAdminData(); }}
+                                  className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg border border-emerald-200 transition-all cursor-pointer" title="Approve">
+                                  <Check className="h-3.5 w-3.5" />
+                                </button>
+                              )}
+                              {ad.status === 'ACTIVE' && (
+                                <button onClick={async () => { await api.put(`/admin/ads/${ad.id}/status`, { status: 'PAUSED' }); fetchAdminData(); }}
+                                  className="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg border border-amber-200 transition-all cursor-pointer" title="Pause">
+                                  <X className="h-3.5 w-3.5" />
+                                </button>
+                              )}
+                              {ad.status === 'PAUSED' && (
+                                <button onClick={async () => { await api.put(`/admin/ads/${ad.id}/status`, { status: 'ACTIVE' }); fetchAdminData(); }}
+                                  className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg border border-emerald-200 transition-all cursor-pointer" title="Resume">
+                                  <Check className="h-3.5 w-3.5" />
+                                </button>
+                              )}
+                              <button onClick={async () => { if (confirm('Delete this ad?')) { await api.delete(`/admin/ads/${ad.id}`); fetchAdminData(); } }}
+                                className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg border border-red-200 transition-all cursor-pointer" title="Delete">
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
           </motion.div>

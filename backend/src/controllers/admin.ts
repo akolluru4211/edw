@@ -3,247 +3,261 @@ import { prisma } from '../lib/db'
 import type { AuthenticatedRequest } from '../middlewares/auth'
 import { sendEmail, getEmailTemplate } from '../lib/email'
 
-// Get system analytics (Admin Panel)
+const VALID_ROLES = ['STUDENT', 'ALUMNI', 'MENTOR', 'ADMIN']
+
 export const getAdminMetrics = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const usersCount = await prisma.user.count()
-    const profilesCount = await prisma.profile.count()
-    const resumesCount = await prisma.resume.count()
-    const applicationsCount = await prisma.application.count()
-    const opportunitiesCount = await prisma.opportunity.count()
-    const connectionsCount = await prisma.connection.count({ where: { status: 'CONNECTED' } })
-    const postsCount = await prisma.post.count()
-    const aiChatsCount = await prisma.aIChat.count()
+    const [usersCount, profilesCount, resumesCount, applicationsCount, opportunitiesCount, connectionsCount, postsCount, aiChatsCount, adsCount] = await Promise.all([
+      prisma.user.count(),
+      prisma.profile.count(),
+      prisma.resume.count(),
+      prisma.application.count(),
+      prisma.opportunity.count(),
+      prisma.connection.count({ where: { status: 'CONNECTED' } }),
+      prisma.post.count(),
+      prisma.aIChat.count(),
+      prisma.ad.count().catch(() => 0)
+    ])
 
     res.json({
-      metrics: {
-        users: usersCount,
-        profiles: profilesCount,
-        resumes: resumesCount,
-        applications: applicationsCount,
-        opportunities: opportunitiesCount,
-        connections: connectionsCount,
-        posts: postsCount,
-        chats: aiChatsCount
-      }
+      metrics: { users: usersCount, profiles: profilesCount, resumes: resumesCount, applications: applicationsCount, opportunities: opportunitiesCount, connections: connectionsCount, posts: postsCount, chats: aiChatsCount, ads: adsCount }
     })
   } catch (error) {
-    res.status(500).json({ error: 'Internal server error fetching admin metrics' })
+    res.status(500).json({ error: 'Failed to load metrics.' })
   }
 }
 
-// Get all users
 export const getAdminUsers = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const list = await prisma.user.findMany({
       include: { profile: true },
       orderBy: { createdAt: 'desc' }
     })
-    
-    // Sanitize passwordHash out
     const sanitized = list.map(u => ({
-      id: u.id,
-      email: u.email,
-      fullName: u.fullName,
-      phoneNumber: u.phoneNumber,
-      role: u.role,
-      createdAt: u.createdAt,
-      memberId: u.memberId,
-      profile: u.profile,
-      edPoints: u.edPoints || 0
+      id: u.id, email: u.email, fullName: u.fullName, phoneNumber: u.phoneNumber,
+      role: u.role, createdAt: u.createdAt, memberId: u.memberId, profile: u.profile, edPoints: u.edPoints || 0
     }))
-
     res.json(sanitized)
   } catch (error) {
-    res.status(500).json({ error: 'Internal server error fetching admin users' })
+    res.status(500).json({ error: 'Failed to load users.' })
   }
 }
 
-
-// Modify user role
 export const updateAdminUserRole = async (req: AuthenticatedRequest, res: Response) => {
   const id = req.params.id as string
-  const { role } = req.body // STUDENT, ALUMNI, MENTOR, ADMIN
-
-  if (!role) return res.status(400).json({ error: 'Role is required' })
+  const { role } = req.body
+  if (!role) return res.status(400).json({ error: 'Role is required.' })
+  if (!VALID_ROLES.includes(role)) return res.status(400).json({ error: `Invalid role. Must be one of: ${VALID_ROLES.join(', ')}` })
 
   try {
-    const updated = await prisma.user.update({
-      where: { id },
-      data: { role }
-    })
-    res.json({
-      id: updated.id,
-      email: updated.email,
-      fullName: updated.fullName,
-      role: updated.role
-    })
+    const existing = await prisma.user.findUnique({ where: { id } })
+    if (!existing) return res.status(404).json({ error: 'User not found.' })
+
+    const updated = await prisma.user.update({ where: { id }, data: { role } })
+    res.json({ id: updated.id, email: updated.email, fullName: updated.fullName, role: updated.role })
   } catch (error) {
-    res.status(500).json({ error: 'Internal server error updating role' })
+    res.status(500).json({ error: 'Failed to update role.' })
   }
 }
 
-// Delete user
 export const deleteAdminUser = async (req: AuthenticatedRequest, res: Response) => {
   const id = req.params.id as string
   try {
+    const existing = await prisma.user.findUnique({ where: { id } })
+    if (!existing) return res.status(404).json({ error: 'User not found.' })
+    if (existing.role === 'ADMIN') return res.status(400).json({ error: 'Cannot delete admin accounts.' })
+
     await prisma.user.delete({ where: { id } })
     res.json({ success: true })
   } catch (error) {
-    res.status(500).json({ error: 'Internal server error deleting user' })
+    res.status(500).json({ error: 'Failed to delete user.' })
   }
 }
 
-// Send bulk notification & Resend email to all users
 export const sendBulkCustomMessage = async (req: AuthenticatedRequest, res: Response) => {
   const { title, text } = req.body
-
-  if (!title || !text) {
-    return res.status(400).json({ error: 'Title (subject) and text message are required' })
-  }
+  if (!title || !text) return res.status(400).json({ error: 'Title and message are required.' })
 
   try {
-    const users = await prisma.user.findMany({
-      select: { id: true, email: true, fullName: true }
-    })
-
-    if (users.length === 0) {
-      return res.status(400).json({ error: 'No registered users found' })
-    }
-
-    // 1. Create DB Notifications in bulk
-    const notificationData = users.map(u => ({
-      userId: u.id,
-      title,
-      text,
-      read: false
-    }))
+    const users = await prisma.user.findMany({ select: { id: true, email: true, fullName: true } })
+    if (users.length === 0) return res.status(400).json({ error: 'No registered users found.' })
 
     await prisma.notification.createMany({
-      data: notificationData
+      data: users.map(u => ({ userId: u.id, title, text, read: false }))
     })
 
-    // 2. Dispatch Emails asynchronously using Resend API
     const emailTemplate = getEmailTemplate(title, `<p>${text.replace(/\n/g, '<br>')}</p>`)
+    Promise.all(users.map(u => sendEmail({ to: u.email, subject: title, html: emailTemplate }).catch(() => {})))
 
-    // Send emails in background
-    Promise.all(
-      users.map(u =>
-        sendEmail({
-          to: u.email,
-          subject: title,
-          html: emailTemplate
-        }).catch(err => {
-          console.error(`Failed to send bulk email to ${u.email}:`, err)
-        })
-      )
-    )
-
-    // Log the bulk send event
     await prisma.dataLog.create({
-      data: {
-        type: 'BULK_ANNOUNCEMENT',
-        email: req.user?.email || 'admin',
-        ipAddress: req.ip || null,
-        details: `Sent bulk announcement "${title}" to ${users.length} users.`
-      }
-    }).catch(err => console.error('Failed to write bulk announcement log:', err))
+      data: { type: 'BULK_ANNOUNCEMENT', email: req.user?.email || 'admin', ipAddress: req.ip || null, details: `Sent "${title}" to ${users.length} users.` }
+    }).catch(() => {})
 
     res.json({ success: true, count: users.length })
   } catch (error) {
-    console.error('Send bulk custom message error:', error)
-    res.status(500).json({ error: 'Internal server error sending bulk messages' })
+    res.status(500).json({ error: 'Failed to send announcement.' })
   }
 }
 
-// Modify user points
 export const updateAdminUserPoints = async (req: AuthenticatedRequest, res: Response) => {
   const id = req.params.id as string
   const { points } = req.body
-
-  if (points === undefined || typeof points !== 'number') {
-    return res.status(400).json({ error: 'Points must be a number' })
-  }
+  if (points === undefined || typeof points !== 'number') return res.status(400).json({ error: 'Points must be a number.' })
 
   try {
+    const existing = await prisma.user.findUnique({ where: { id } })
+    if (!existing) return res.status(404).json({ error: 'User not found.' })
+
+    const delta = points - (existing.edPoints || 0)
     const updated = await prisma.$transaction(async (tx) => {
-      const u = await tx.user.update({
-        where: { id },
-        data: { edPoints: points }
-      })
+      const u = await tx.user.update({ where: { id }, data: { edPoints: points } })
       await tx.pointTransaction.create({
-        data: {
-          userId: id,
-          points: points - (u.edPoints + points), // Wait, let's just log the absolute adjustment or relative difference.
-          // Since the user might have some points, let's log the points added/deducted or simple transaction details:
-          description: `Admin points adjustment to absolute value: ${points} Pts`
-        }
+        data: { userId: id, points: delta, description: `Admin adjusted points to ${points} (delta: ${delta >= 0 ? '+' : ''}${delta})` }
       })
-      return u;
+      return u
     })
-    res.json({
-      id: updated.id,
-      email: updated.email,
-      fullName: updated.fullName,
-      edPoints: updated.edPoints
-    })
+    res.json({ id: updated.id, email: updated.email, fullName: updated.fullName, edPoints: updated.edPoints })
   } catch (error) {
-    console.error('Update points error:', error)
-    res.status(500).json({ error: 'Internal server error updating points' })
+    res.status(500).json({ error: 'Failed to update points.' })
   }
 }
 
-// Get all activity logs
 export const getAdminActivityLogs = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const logs = await prisma.dataLog.findMany({
-      orderBy: { createdAt: 'desc' },
-      take: 100
-    })
+    const logs = await prisma.dataLog.findMany({ orderBy: { createdAt: 'desc' }, take: 200 })
     res.json(logs)
   } catch (error) {
-    console.error('Get logs error:', error)
-    res.status(500).json({ error: 'Internal server error fetching logs' })
+    res.status(500).json({ error: 'Failed to load logs.' })
   }
 }
 
-// Clear all activity logs
 export const clearAdminActivityLogs = async (req: AuthenticatedRequest, res: Response) => {
   try {
+    await prisma.dataLog.create({
+      data: { type: 'LOGS_CLEARED', email: req.user?.email || 'admin', ipAddress: req.ip || null, details: 'Admin cleared all activity logs.' }
+    }).catch(() => {})
     await prisma.dataLog.deleteMany({})
     res.json({ success: true })
   } catch (error) {
-    console.error('Clear logs error:', error)
-    res.status(500).json({ error: 'Internal server error clearing logs' })
+    res.status(500).json({ error: 'Failed to clear logs.' })
   }
 }
 
-// Get all point transactions
 export const getAdminPointTransactions = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const txs = await prisma.pointTransaction.findMany({
-      orderBy: { createdAt: 'desc' },
-      take: 100
-    })
-    
-    // We can manually fetch and map user info for each transaction
-    const usersList = await prisma.user.findMany({
-      select: { id: true, fullName: true, email: true }
-    })
+    const txs = await prisma.pointTransaction.findMany({ orderBy: { createdAt: 'desc' }, take: 200 })
+    const userIds = [...new Set(txs.map(t => t.userId))]
+    const usersList = await prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, fullName: true, email: true } })
     const userMap = new Map(usersList.map(u => [u.id, u]))
-    
+
     const mapped = txs.map(tx => ({
-      id: tx.id,
-      points: tx.points,
-      description: tx.description,
-      createdAt: tx.createdAt,
+      id: tx.id, points: tx.points, description: tx.description, createdAt: tx.createdAt,
       user: userMap.get(tx.userId) || { fullName: 'Unknown', email: 'N/A' }
     }))
-
     res.json(mapped)
   } catch (error) {
-    console.error('Get transactions error:', error)
-    res.status(500).json({ error: 'Internal server error fetching transactions' })
+    res.status(500).json({ error: 'Failed to load transactions.' })
   }
 }
 
+// === ADS MANAGEMENT ===
+
+export const getAds = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const ads = await prisma.ad.findMany({ orderBy: { createdAt: 'desc' } })
+    res.json(ads)
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to load ads.' })
+  }
+}
+
+export const createAd = async (req: AuthenticatedRequest, res: Response) => {
+  const { businessName, contactEmail, contactPhone, title, description, imageUrl, videoUrl, linkUrl, costPerDay, costPer100Views, totalBudget } = req.body
+  if (!businessName || !contactEmail || !title || !description) {
+    return res.status(400).json({ error: 'Business name, contact email, title, and description are required.' })
+  }
+
+  try {
+    const ad = await prisma.ad.create({
+      data: {
+        businessName, contactEmail, contactPhone, title, description,
+        imageUrl, videoUrl, linkUrl,
+        costPerDay: costPerDay || 100,
+        costPer100Views: costPer100Views || 100,
+        totalBudget: totalBudget || 1000
+      }
+    })
+    res.status(201).json(ad)
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to create ad.' })
+  }
+}
+
+export const updateAdStatus = async (req: AuthenticatedRequest, res: Response) => {
+  const id = req.params.id as string
+  const { status } = req.body
+  const validStatuses = ['PENDING', 'ACTIVE', 'PAUSED', 'COMPLETED', 'REJECTED']
+  if (!status || !validStatuses.includes(status)) {
+    return res.status(400).json({ error: `Invalid status. Must be one of: ${validStatuses.join(', ')}` })
+  }
+
+  try {
+    const existing = await prisma.ad.findUnique({ where: { id } })
+    if (!existing) return res.status(404).json({ error: 'Ad not found.' })
+
+    const updateData: any = { status }
+    if (status === 'ACTIVE' && !existing.startDate) updateData.startDate = new Date()
+
+    const ad = await prisma.ad.update({ where: { id }, data: updateData })
+    res.json(ad)
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update ad status.' })
+  }
+}
+
+export const deleteAd = async (req: AuthenticatedRequest, res: Response) => {
+  const id = req.params.id as string
+  try {
+    const existing = await prisma.ad.findUnique({ where: { id } })
+    if (!existing) return res.status(404).json({ error: 'Ad not found.' })
+    await prisma.ad.delete({ where: { id } })
+    res.json({ success: true })
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete ad.' })
+  }
+}
+
+// Public endpoint: get active ads for display
+export const getActiveAds = async (req: Request, res: Response) => {
+  try {
+    const ads = await prisma.ad.findMany({
+      where: { status: 'ACTIVE' },
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+      select: { id: true, title: true, description: true, imageUrl: true, videoUrl: true, linkUrl: true, businessName: true }
+    })
+    res.json(ads)
+  } catch (error) {
+    res.json([])
+  }
+}
+
+export const trackAdView = async (req: Request, res: Response) => {
+  const { id } = req.params
+  try {
+    await prisma.ad.update({ where: { id }, data: { views: { increment: 1 } } })
+    res.json({ success: true })
+  } catch (error) {
+    res.json({ success: false })
+  }
+}
+
+export const trackAdClick = async (req: Request, res: Response) => {
+  const { id } = req.params
+  try {
+    await prisma.ad.update({ where: { id }, data: { clicks: { increment: 1 } } })
+    res.json({ success: true })
+  } catch (error) {
+    res.json({ success: false })
+  }
+}
