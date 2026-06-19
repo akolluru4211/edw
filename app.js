@@ -473,37 +473,42 @@
   async function fetchOpenRouterCompletion(messages, systemPrompt = '') {
     const config = getOpenRouterConfig();
     if (!config.apiKey) {
-      throw new Error('API Key missing. Please configure OpenRouter.');
+      return generateLocalFallbackResponse(messages, systemPrompt);
     }
     
-    const formattedMessages = [];
-    if (systemPrompt) {
-      formattedMessages.push({ role: 'system', content: systemPrompt });
+    try {
+      const formattedMessages = [];
+      if (systemPrompt) {
+        formattedMessages.push({ role: 'system', content: systemPrompt });
+      }
+      formattedMessages.push(...messages);
+      
+      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${config.apiKey}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': window.location.origin,
+          'X-Title': 'EdWorld Co'
+        },
+        body: JSON.stringify({
+          model: config.model,
+          messages: formattedMessages
+        })
+      });
+      
+      if (!response.ok) {
+        const errBody = await response.json().catch(() => ({}));
+        const errMsg = errBody.error?.message || `HTTP ${response.status}`;
+        throw new Error(`OpenRouter Error: ${errMsg}`);
+      }
+      
+      const data = await response.json();
+      return data.choices[0]?.message?.content || '';
+    } catch (err) {
+      console.warn('OpenRouter API call failed, falling back to local engine:', err);
+      return generateLocalFallbackResponse(messages, systemPrompt);
     }
-    formattedMessages.push(...messages);
-    
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${config.apiKey}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': window.location.origin,
-        'X-Title': 'EdWorld Co'
-      },
-      body: JSON.stringify({
-        model: config.model,
-        messages: formattedMessages
-      })
-    });
-    
-    if (!response.ok) {
-      const errBody = await response.json().catch(() => ({}));
-      const errMsg = errBody.error?.message || `HTTP ${response.status}`;
-      throw new Error(`OpenRouter Error: ${errMsg}`);
-    }
-    
-    const data = await response.json();
-    return data.choices[0]?.message?.content || '';
   }
 
   // ==========================================
@@ -572,6 +577,7 @@
     ambassadorApplications: [],
     withdrawals: [],
     userActions: [],
+    bulkMails: [],
     simulatePostJuly: false
   };
 
@@ -772,6 +778,7 @@
         renderRecommendedCarousel();
       }
       if (viewName === 'dashboard') renderDashboard();
+      if (viewName === 'notifications') renderNotificationsView();
     }));
 
     // Stream projects
@@ -851,6 +858,7 @@
       });
       const viewName = window.location.hash.replace('#', '') || 'dashboard';
       if (viewName === 'admin') renderAdminPane();
+      if (viewName === 'ambassador') setupAmbassadorFormListener();
     }));
 
     // Stream withdrawals
@@ -873,6 +881,17 @@
       });
       const viewName = window.location.hash.replace('#', '') || 'dashboard';
       if (viewName === 'admin') renderAdminPane();
+    }));
+
+    // Stream bulk announcements
+    unsubscribeStreams.push(db.collection('bulk_mail').orderBy('created_at', 'desc').onSnapshot(snap => {
+      state.bulkMails = snap.docs.map(doc => {
+        const d = doc.data();
+        d.id = d.id || doc.id;
+        return d;
+      });
+      const viewName = window.location.hash.replace('#', '') || 'dashboard';
+      if (viewName === 'notifications') renderNotificationsView();
     }));
   }
 
@@ -905,6 +924,67 @@
   // ==========================================
   // 2. HELPER UTILITIES
   // ==========================================
+  function escapeHTML(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  function generateLocalFallbackResponse(messages, systemPrompt = '') {
+    // Find the last user message
+    let userMsg = '';
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === 'user') {
+        userMsg = messages[i].content || '';
+        break;
+      }
+    }
+    if (!userMsg && messages.length > 0) {
+      userMsg = messages[messages.length - 1].content || '';
+    }
+
+    const q = userMsg.toLowerCase();
+    
+    // Check if we are doing bio generation (contains prompt to generate bio)
+    if (q.includes('name:') && q.includes('headline:') && q.includes('skills:')) {
+      const nameMatch = userMsg.match(/Name:\s*([^,]+)/i);
+      const headlineMatch = userMsg.match(/Headline:\s*([^,]+)/i);
+      const skillsMatch = userMsg.match(/Skills:\s*([^\n\r]+)/i);
+      
+      const name = nameMatch ? nameMatch[1].trim() : (state.currentUser ? state.currentUser.name : 'Developer');
+      const headline = headlineMatch ? headlineMatch[1].trim() : 'Tech Professional';
+      const skills = skillsMatch ? skillsMatch[1].trim() : 'Software Development';
+      
+      return `Hello! I am ${name}, working as a ${headline}. I specialize in ${skills}. I love building innovative software solutions, solving complex technical challenges, and continuously learning new technologies. Let's connect and build the future together!`;
+    }
+
+    if (q.includes('resume') || q.includes('cv') || q.includes('portfolio')) {
+      return "Your portfolio and resume are crucial! Make sure to list your projects under the 'Projects' section and utilize EdWorld Co.'s customizable template to share your accomplishments with recruiters.";
+    }
+    if (q.includes('project') || q.includes('hackathon') || q.includes('build')) {
+      return "Building hands-on projects is the absolute best way to learn. Participate in our upcoming hackathons or list your custom developer projects on Edworld to earn points and climb the leaderboard.";
+    }
+    if (q.includes('point') || q.includes('earn') || q.includes('withdraw') || q.includes('money') || q.includes('pay')) {
+      return "You earn points by listing quality projects, completing profile information, and referring others. Once you reach 200 points, you can request a cash payout directly via UPI or Bank Transfer from the points page.";
+    }
+    if (q.includes('ambassador') || q.includes('campus') || q.includes('program') || q.includes('rep')) {
+      return "Our Campus Ambassador Program allows you to represent Edworld Co. at your college. You will host events, help fellow students, and earn special rewards & certificates. Apply under the Ambassador section!";
+    }
+    if (q.includes('job') || q.includes('career') || q.includes('placement') || q.includes('intern')) {
+      return "Check out the Jobs board for the latest internship and full-time opportunities. Keep your portfolio profile updated and add high-quality projects to get noticed by verified recruiters!";
+    }
+    if (q.includes('hello') || q.includes('hi') || q.includes('hey') || q.includes('sup')) {
+      const name = state.currentUser ? `, ${state.currentUser.name}` : '';
+      return `Hello${name}! I am your EdWorld Co. AI mentor. How can I help you today with your career, projects, or our platform features?`;
+    }
+    
+    return "That's a great question! As your EdWorld Co. AI Mentor, I suggest exploring our Projects tab, collaborating with other students, and building your portfolio. Let me know if you need specific advice on coding or career opportunities!";
+  }
+
   function showToast(text, type = 'info', actionUrl = '') {
     const container = document.getElementById('toast-container');
     if (!container) return;
@@ -1526,6 +1606,7 @@
     if (viewName === 'courses') renderCoursesIndex();
     if (viewName === 'projects') renderProjectsGrid();
     if (viewName === 'connections') renderConnectionsView();
+    if (viewName === 'notifications') renderNotificationsView();
     if (viewName === 'messages') renderMessagesView();
     if (viewName === 'jobs') renderJobsView();
     if (viewName === 'leaderboard') renderLeaderboards();
@@ -1945,7 +2026,7 @@
     });
   }
 
-  function sendConnectionRequest(targetUserId, btnElement) {
+  async function sendConnectionRequest(targetUserId, btnElement) {
     // Check pending limit
     const pendingSentCount = state.connections.filter(c => c.from_user_id === state.currentUser.id && c.status === 'pending').length;
     if (pendingSentCount >= 50) {
@@ -1953,27 +2034,59 @@
       return;
     }
 
-    // Add request
-    state.connections.push({
-      from_user_id: state.currentUser.id,
-      to_user_id: targetUserId,
-      status: "pending",
-      created_at: new Date().toISOString()
-    });
-    
-    // Simulate other user receiving request: trigger a mock return request notification system!
-    // For high fidelity, if we add Diana, she sends one back after 5 seconds
-    setTimeout(() => {
-      simulateIncomingConnectionRequest(targetUserId);
-    }, 6000);
-
-    saveState();
-    
-    if (btnElement) {
-      btnElement.outerHTML = `<span style="font-size:11px; color:var(--text-muted);"><i class="fas fa-clock"></i> Sent</span>`;
+    const targetUser = state.users.find(u => u.id === targetUserId);
+    if (!targetUser) {
+      showToast("Target user not found.", "danger");
+      return;
     }
-    showToast("Connection request sent!", "success");
-    renderDashboard();
+
+    try {
+      // 1. Write connection invite to Firestore connections collection
+      const newConnectionRef = db.collection('connections').doc();
+      await newConnectionRef.set({
+        id: newConnectionRef.id,
+        from_user_id: state.currentUser.id,
+        to_user_id: targetUserId,
+        status: "pending",
+        message: `Hey ${targetUser.name}! I'd love to connect with you on EdWorld Co. to collaborate and learn together.`,
+        created_at: new Date().toISOString()
+      });
+
+      // 2. Queue email notification in Firestore mail_queue
+      if (targetUser.email) {
+        const mailRef = db.collection('mail_queue').doc();
+        await mailRef.set({
+          id: mailRef.id,
+          to: targetUser.email,
+          from: "eden.edworld@gmail.com",
+          subject: `New Connection Invite from ${state.currentUser.name} on EdWorld Co.`,
+          body: `Hi ${targetUser.name},\n\nYou have received a new connection request from ${state.currentUser.name} on EdWorld Co.\n\nMessage: "Hey ${targetUser.name}! I'd love to connect with you on EdWorld Co. to collaborate and learn together."\n\nLog in to your workspace at https://edworld-career-os-2026.web.app to view and accept their invitation.\n\nBest,\nThe EdWorld Co. Team`,
+          created_at: new Date().toISOString()
+        });
+      }
+
+      // 3. Create in-app notification in Firestore notifications collection
+      const notificationRef = db.collection('notifications').doc();
+      await notificationRef.set({
+        id: notificationRef.id,
+        recipient_id: targetUserId,
+        actor_id: state.currentUser.id,
+        title: "Connection Request",
+        message: `${state.currentUser.name} sent you a connection request.`,
+        type: "connection_request",
+        is_read: false,
+        created_at: new Date().toISOString()
+      });
+
+      if (btnElement) {
+        btnElement.outerHTML = `<span style="font-size:11px; color:var(--text-muted);"><i class="fas fa-clock"></i> Sent</span>`;
+      }
+      showToast("Connection request sent!", "success");
+      logUserAction('send_connection', `Sent connection request to user ${targetUserId}`);
+    } catch (err) {
+      console.error("Connection request error:", err);
+      showToast("Failed to send connection request. Please try again.", "danger");
+    }
   }
 
   function simulateIncomingConnectionRequest(userId) {
@@ -2829,39 +2942,71 @@
     });
   }
 
-  function acceptConnectionRequest(targetUserId) {
+  async function acceptConnectionRequest(targetUserId) {
     const conn = state.connections.find(c => 
       c.from_user_id === targetUserId && c.to_user_id === state.currentUser.id && c.status === 'pending'
     );
     if (conn) {
-      conn.status = 'accepted';
-      conn.accepted_at = new Date().toISOString();
-      
-      // Award networking points
-      state.currentUser.points += 15;
+      try {
+        const querySnap = await db.collection('connections')
+          .where('from_user_id', '==', targetUserId)
+          .where('to_user_id', '==', state.currentUser.id)
+          .where('status', '==', 'pending')
+          .get();
+        
+        if (!querySnap.empty) {
+          const docId = querySnap.docs[0].id;
+          await db.collection('connections').doc(docId).update({
+            status: 'accepted',
+            accepted_at: new Date().toISOString()
+          });
+        }
+        
+        // Award networking points
+        state.currentUser.points = (state.currentUser.points || 0) + 15;
 
-      // Unlocks check
-      const acceptedCount = state.connections.filter(c => 
-        (c.from_user_id === state.currentUser.id || c.to_user_id === state.currentUser.id) && c.status === 'accepted'
-      ).length;
-      if (acceptedCount >= 5 && !state.currentUser.badges.includes("connector")) {
-        unlockBadge("connector");
+        // Unlocks check
+        const acceptedCount = state.connections.filter(c => 
+          (c.from_user_id === state.currentUser.id || c.to_user_id === state.currentUser.id) && c.status === 'accepted'
+        ).length;
+        if (acceptedCount >= 5 && !state.currentUser.badges.includes("connector")) {
+          unlockBadge("connector");
+        }
+
+        await db.collection('users').doc(state.currentUser.id).set(state.currentUser);
+        updateGlobalUserData();
+        showToast("Connection Request Accepted! +15 points.", "success");
+        renderConnectionsView();
+        
+        const viewName = window.location.hash.replace('#', '') || 'dashboard';
+        if (viewName === 'notifications') renderNotificationsView();
+      } catch (err) {
+        console.error("Error accepting connection:", err);
       }
-
-      saveState();
-      updateGlobalUserData();
-      showToast("Connection Request Accepted! +15 points.", "success");
-      renderConnectionsView();
     }
   }
 
-  function declineConnectionRequest(targetUserId) {
-    state.connections = state.connections.filter(c => 
-      !(c.from_user_id === targetUserId && c.to_user_id === state.currentUser.id && c.status === 'pending')
-    );
-    saveState();
-    showToast("Connection request declined.", "info");
-    renderConnectionsView();
+  async function declineConnectionRequest(targetUserId) {
+    try {
+      const querySnap = await db.collection('connections')
+        .where('from_user_id', '==', targetUserId)
+        .where('to_user_id', '==', state.currentUser.id)
+        .where('status', '==', 'pending')
+        .get();
+      
+      if (!querySnap.empty) {
+        const docId = querySnap.docs[0].id;
+        await db.collection('connections').doc(docId).delete();
+      }
+      
+      showToast("Connection request declined.", "info");
+      renderConnectionsView();
+      
+      const viewName = window.location.hash.replace('#', '') || 'dashboard';
+      if (viewName === 'notifications') renderNotificationsView();
+    } catch (err) {
+      console.error("Error declining connection:", err);
+    }
   }
 
   function removeConnection(targetUserId) {
@@ -3143,10 +3288,9 @@
           reply = "Let's schedule a study session this Friday at 4 PM. We can review modules and quiz solutions.";
         }
 
-        const config = getOpenRouterConfig();
         const isMentor = recipient.role === 'mentor';
 
-        if (isMentor && config.apiKey) {
+        if (isMentor) {
           try {
             // Get last 10 messages for context
             const threadMessages = state.messages
@@ -3171,9 +3315,6 @@ Keep the response concise (2-4 sentences) and highly relevant to their profile o
             console.error('[OpenRouter Mentor Error]', err);
             reply = `*(AI Fallback)* ${reply}`;
           }
-        } else if (isMentor) {
-          // Notify user to setup key
-          ensureOpenRouterKey();
         }
 
         state.messages.push({
@@ -3970,12 +4111,10 @@ Keep the response concise (2-4 sentences) and highly relevant to their profile o
       `;
     }
 
-    const config = getOpenRouterConfig();
     let replyText = '';
 
-    if (config.apiKey) {
-      try {
-        const systemPrompt = `You are the EdWorld Careers Assistant, a smart agent that helps users find job listings and prepare applications.
+    try {
+      const systemPrompt = `You are the EdWorld Careers Assistant, a smart agent that helps users find job listings and prepare applications.
 Here is the list of matching job listings found in our database:
 ${JSON.stringify(result.matches.slice(0, 3))}
 
@@ -3983,14 +4122,10 @@ Please answer the user's query using the provided job listings. Highlight matchi
 Be helpful, concise, and professional. Use markdown bolding for job titles and companies.
 If no listings are relevant, suggest how they might search better.`;
 
-        replyText = await fetchOpenRouterCompletion([{ role: 'user', content: query }], systemPrompt);
-      } catch (err) {
-        console.error('[OpenRouter RAG Error]', err);
-        replyText = `*(AI Fallback)* ${result.reply}`;
-      }
-    } else {
-      ensureOpenRouterKey();
-      replyText = result.reply;
+      replyText = await fetchOpenRouterCompletion([{ role: 'user', content: query }], systemPrompt);
+    } catch (err) {
+      console.error('[OpenRouter RAG Error]', err);
+      replyText = `*(AI Fallback)* ${result.reply}`;
     }
 
     typingRow.remove();
@@ -4171,10 +4306,7 @@ Sincerely,
 
     toggle.onclick = (e) => {
       e.stopPropagation();
-      dropdown.classList.toggle('active');
-      if (dropdown.classList.contains('active')) {
-        renderNotificationsDropdown();
-      }
+      window.location.hash = '#notifications';
     };
 
     // Close notifications panel on click outside
@@ -4277,7 +4409,170 @@ Sincerely,
           renderNotificationsDropdown();
         };
       }
-    });
+  }
+
+  // --- NOTIFICATIONS WORKSPACE VIEW ---
+  function renderNotificationsView() {
+    if (!state.currentUser) return;
+
+    // 1. Setup visibility of Admin Bulk Composer vs Announcements feed
+    const adminComposer = document.getElementById('notifications-admin-composer');
+    const userAnnouncements = document.getElementById('notifications-user-announcements');
+    
+    if (state.currentUser.role === 'admin') {
+      if (adminComposer) adminComposer.style.display = 'block';
+      if (userAnnouncements) userAnnouncements.style.display = 'none';
+      
+      // Bind admin bulk mail composition
+      const bulkMailForm = document.getElementById('admin-bulk-mail-form');
+      if (bulkMailForm) {
+        bulkMailForm.onsubmit = async (e) => {
+          e.preventDefault();
+          const subject = document.getElementById('bulk-mail-subject').value.trim();
+          const message = document.getElementById('bulk-mail-message').value.trim();
+          
+          if (!subject || !message) {
+            showToast("Subject and message are required.", "warning");
+            return;
+          }
+          
+          try {
+            // Write bulk campaign doc to Firestore
+            const campaignId = "bulk_" + Date.now();
+            await db.collection('bulk_mail').doc(campaignId).set({
+              id: campaignId,
+              subject: subject,
+              body: message,
+              sender: "eden.edworld@gmail.com",
+              created_at: new Date().toISOString()
+            });
+
+            // Queue individual emails and in-app notifications for ALL registered users (excluding sender admin)
+            const recipientUsers = state.users.filter(u => u.id !== state.currentUser.id);
+            for (const recipient of recipientUsers) {
+              // Create in-app notification in Firestore notifications collection
+              const notifRef = db.collection('notifications').doc();
+              await notifRef.set({
+                id: notifRef.id,
+                recipient_id: recipient.id,
+                actor_id: state.currentUser.id,
+                title: subject,
+                message: message.substring(0, 100) + (message.length > 100 ? '...' : ''),
+                type: "bulk_announcement",
+                is_read: false,
+                created_at: new Date().toISOString()
+              });
+
+              // Queue email in mail_queue
+              if (recipient.email) {
+                const mailRef = db.collection('mail_queue').doc();
+                await mailRef.set({
+                  id: mailRef.id,
+                  to: recipient.email,
+                  from: "eden.edworld@gmail.com",
+                  subject: subject,
+                  body: message,
+                  created_at: new Date().toISOString()
+                });
+              }
+            }
+
+            showToast("Bulk announcement and emails queued successfully!", "success");
+            bulkMailForm.reset();
+          } catch (err) {
+            console.error("Bulk email error:", err);
+            showToast("Failed to queue bulk emails. Try again.", "danger");
+          }
+        };
+      }
+    } else {
+      if (adminComposer) adminComposer.style.display = 'none';
+      if (userAnnouncements) userAnnouncements.style.display = 'block';
+      
+      // Render bulk mail announcements for normal users
+      const announcementsList = document.getElementById('user-announcements-list');
+      if (announcementsList) {
+        announcementsList.innerHTML = '';
+        if (state.bulkMails.length === 0) {
+          announcementsList.innerHTML = `<div style="text-align: center; color: var(--text-muted); padding: 16px;">No announcements from administrators yet.</div>`;
+        } else {
+          state.bulkMails.forEach(mail => {
+            const card = document.createElement('div');
+            card.className = 'glass-panel';
+            card.style.padding = '16px';
+            card.style.borderRadius = '8px';
+            card.style.display = 'flex';
+            card.style.flexDirection = 'column';
+            card.style.gap = '8px';
+            card.style.marginBottom = '12px';
+            card.innerHTML = `
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-weight:700; color:var(--primary); font-size:15px;"><i class="fas fa-envelope-open-text"></i> ${mail.subject}</span>
+                <span style="font-size:11px; color:var(--text-muted);">${formatTime(mail.created_at)}</span>
+              </div>
+              <p style="font-size:13px; line-height:1.5; color:var(--text-secondary); white-space:pre-wrap; margin:0;">${mail.body}</p>
+              <div style="font-size:11px; color:var(--text-muted); border-top:1px solid var(--border-card); padding-top:6px; margin-top:4px;">
+                From: <code>${mail.sender}</code>
+              </div>
+            `;
+            announcementsList.appendChild(card);
+          });
+        }
+      }
+    }
+
+    // 2. Render Inbound Connection requests
+    const connList = document.getElementById('connections-requests-list');
+    if (connList) {
+      connList.innerHTML = '';
+      
+      const pendingInvites = state.connections.filter(c => c.to_user_id === state.currentUser.id && c.status === 'pending');
+      if (pendingInvites.length === 0) {
+        connList.innerHTML = `<div style="text-align: center; color: var(--text-muted); padding: 16px;">No pending connection requests.</div>`;
+      } else {
+        pendingInvites.forEach(c => {
+          const sender = state.users.find(u => u.id === c.from_user_id) || {
+            name: "Anonymous User",
+            avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150",
+            headline: "Student Learner"
+          };
+          
+          const card = document.createElement('div');
+          card.className = 'glass-panel';
+          card.style.padding = '16px';
+          card.style.borderRadius = '8px';
+          card.style.display = 'flex';
+          card.style.alignItems = 'center';
+          card.style.justifyContent = 'space-between';
+          card.style.gap = '12px';
+          card.style.marginBottom = '12px';
+          
+          card.innerHTML = `
+            <div style="display:flex; align-items:center; gap:12px; flex:1;">
+              <img src="${sender.avatar}" style="width:40px; height:40px; border-radius:50%; object-fit:cover;" alt="Avatar" />
+              <div>
+                <strong style="font-size:14px; color:#fff;">${sender.name}</strong>
+                <div style="font-size:12px; color:var(--text-secondary);">${sender.headline}</div>
+                <div style="font-size:11.5px; color:var(--text-muted); margin-top:4px; font-style:italic;">"${c.message || "Hey! I'd love to connect with you."}"</div>
+              </div>
+            </div>
+            <div style="display:flex; gap:8px;">
+              <button class="glow-btn accept-btn" style="padding:6px 12px; font-size:12px;" id="btn-conn-accept-${c.id}">Accept</button>
+              <button class="secondary-btn decline-btn" style="padding:6px 12px; font-size:12px;" id="btn-conn-decline-${c.id}">Decline</button>
+            </div>
+          `;
+          connList.appendChild(card);
+          
+          document.getElementById(`btn-conn-accept-${c.id}`).onclick = async () => {
+            await acceptConnectionRequest(c.from_user_id);
+          };
+          
+          document.getElementById(`btn-conn-decline-${c.id}`).onclick = async () => {
+            await declineConnectionRequest(c.from_user_id);
+          };
+        });
+      }
+    }
   }
 
   // --- UNIVERSAL SEARCH BOX ---
@@ -4309,13 +4604,12 @@ Sincerely,
       window.location.hash = '#profile';
     };
 
-    // Bind mobile notification bell shortcut to trigger desktop dropdown
+    // Bind mobile notification bell shortcut to redirect to Notifications workspace
     const mobBell = document.getElementById('mobile-notification-bell-btn');
     if (mobBell) {
       mobBell.onclick = (e) => {
         e.stopPropagation();
-        const toggleBtn = document.getElementById('btn-toggle-notifications');
-        if (toggleBtn) toggleBtn.click();
+        window.location.hash = '#notifications';
       };
     }
 
@@ -4574,23 +4868,51 @@ Sincerely,
       }
     }
     
-    const payBtns = document.querySelectorAll('.pay-now-btn');
-    payBtns.forEach(btn => {
-      const planName = btn.getAttribute('data-plan');
-      const price = btn.getAttribute('data-price');
-      
-      if (p && p.status === 'active' && p.name === planName) {
-        btn.textContent = 'Active Plan';
-        btn.setAttribute('disabled', 'true');
-        btn.onclick = null;
-      } else {
-        btn.textContent = 'Pay Now';
-        btn.removeAttribute('disabled');
-        btn.onclick = () => {
-          openPaymentModal(planName, price);
-        };
+    // Plan Selection Engine
+    let selectedPlanName = 'Pro';
+    let selectedPlanPrice = 29;
+
+    window.__edcoSelectPlan = function(planName, price) {
+      selectedPlanName = planName;
+      selectedPlanPrice = price;
+
+      ['Starter', 'Pro', 'Elite'].forEach(pName => {
+        const card = document.getElementById(`plan-card-${pName}`);
+        if (card) {
+          if (pName === planName) {
+            card.style.borderColor = 'var(--primary)';
+            card.style.boxShadow = '0 0 15px rgba(245, 166, 35, 0.2)';
+            card.style.transform = 'translateY(-4px)';
+          } else {
+            card.style.borderColor = 'transparent';
+            card.style.boxShadow = 'none';
+            card.style.transform = 'none';
+          }
+        }
+      });
+
+      const subBtn = document.getElementById('btn-subscribe-selected-plan');
+      if (subBtn) {
+        if (p && p.status === 'active') {
+          if (p.name === planName) {
+            subBtn.innerHTML = `Active Plan: Already Subscribed to ${p.name}`;
+            subBtn.setAttribute('disabled', 'true');
+            subBtn.onclick = null;
+          } else {
+            subBtn.innerHTML = `Switch to ${planName} ($${price}/mo) &nbsp;<i class="fas fa-sync"></i>`;
+            subBtn.removeAttribute('disabled');
+            subBtn.onclick = () => openPaymentModal(planName, price);
+          }
+        } else {
+          subBtn.innerHTML = `Subscribe to ${planName} ($${price}/mo) &nbsp;<i class="fas fa-arrow-right"></i>`;
+          subBtn.removeAttribute('disabled');
+          subBtn.onclick = () => openPaymentModal(planName, price);
+        }
       }
-    });
+    };
+
+    // Trigger initial select
+    window.__edcoSelectPlan(selectedPlanName, selectedPlanPrice);
     
     const paywallToggle = document.getElementById('test-paywall-toggle');
     if (paywallToggle) {
@@ -4676,6 +4998,88 @@ Sincerely,
   function setupAmbassadorFormListener() {
     const form = document.getElementById('ambassador-application-form');
     if (!form) return;
+
+    const formWrapper = document.getElementById('ambassador-form-wrapper');
+    const statusContainer = document.getElementById('ambassador-status-container');
+
+    const userApp = state.currentUser ? state.ambassadorApplications.find(a => a.userId === state.currentUser.id) : null;
+
+    if (userApp) {
+      if (formWrapper) formWrapper.style.display = 'none';
+      if (statusContainer) {
+        statusContainer.style.display = 'block';
+        const statusText = userApp.status || 'pending';
+
+        if (statusText === 'approved') {
+          statusContainer.innerHTML = `
+            <div style="text-align: center; padding: 24px; border-radius: 16px; background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.2);">
+              <div style="font-size: 48px; color: #22c55e; margin-bottom: 16px;"><i class="fas fa-check-circle"></i></div>
+              <h3 style="font-size: 20px; margin-bottom: 8px; color: #22c55e; font-weight: 700;">Application Approved!</h3>
+              <p style="color: var(--text-secondary); font-size: 14px; margin-bottom: 20px;">
+                Congratulations! You are officially an Edworld Co. Campus Ambassador for <strong>${escapeHTML(userApp.college)}</strong>.
+              </p>
+              <div style="display: inline-block; background: rgba(255,255,255,0.05); padding: 12px 20px; border-radius: 12px; font-size: 13px; text-align: left; margin-bottom: 20px;">
+                <div style="margin-bottom: 4px;"><strong>Ambassador:</strong> ${escapeHTML(userApp.name)}</div>
+                <div style="margin-bottom: 4px;"><strong>College:</strong> ${escapeHTML(userApp.college)}</div>
+                <div><strong>Role:</strong> Student Representative</div>
+              </div>
+              <div>
+                <button class="glow-btn" style="margin: 0 auto; padding: 8px 20px;" onclick="window.location.hash='#dashboard'">Go to Dashboard</button>
+              </div>
+            </div>
+          `;
+        } else if (statusText === 'rejected') {
+          statusContainer.innerHTML = `
+            <div style="text-align: center; padding: 24px; border-radius: 16px; background: rgba(220, 38, 38, 0.1); border: 1px solid rgba(220, 38, 38, 0.2);">
+              <div style="font-size: 48px; color: #dc2626; margin-bottom: 16px;"><i class="fas fa-times-circle"></i></div>
+              <h3 style="font-size: 20px; margin-bottom: 8px; color: #dc2626; font-weight: 700;">Application Rejected</h3>
+              <p style="color: var(--text-secondary); font-size: 14px; margin-bottom: 20px;">
+                Unfortunately, your application for the Campus Ambassador Program could not be approved at this time.
+              </p>
+              <button class="secondary-btn" style="margin: 0 auto; padding: 8px 20px;" id="btn-reapply-ambassador">Submit New Application</button>
+            </div>
+          `;
+          const reapplyBtn = document.getElementById('btn-reapply-ambassador');
+          if (reapplyBtn) {
+            reapplyBtn.onclick = async () => {
+              try {
+                const querySnap = await db.collection('ambassador_applications').where('id', '==', userApp.id).get();
+                if (!querySnap.empty) {
+                  await db.collection('ambassador_applications').doc(querySnap.docs[0].id).delete();
+                }
+              } catch (err) {
+                console.error("Error deleting rejected ambassador app:", err);
+              }
+              statusContainer.style.display = 'none';
+              formWrapper.style.display = 'block';
+            };
+          }
+        } else {
+          // Pending
+          statusContainer.innerHTML = `
+            <div style="text-align: center; padding: 24px; border-radius: 16px; background: rgba(234, 179, 8, 0.1); border: 1px solid rgba(234, 179, 8, 0.2);">
+              <div style="font-size: 48px; color: #eab308; margin-bottom: 16px;"><i class="fas fa-clock"></i></div>
+              <h3 style="font-size: 20px; margin-bottom: 8px; color: #eab308; font-weight: 700;">Application Under Review</h3>
+              <p style="color: var(--text-secondary); font-size: 14px; margin-bottom: 20px;">
+                Your application to represent <strong>${escapeHTML(userApp.college)}</strong> is currently under review by our team. We'll notify you once updated.
+              </p>
+              <div style="display: inline-block; background: rgba(255,255,255,0.05); padding: 12px 20px; border-radius: 12px; font-size: 13px; text-align: left; margin-bottom: 20px;">
+                <div style="margin-bottom: 4px;"><strong>Submitted on:</strong> ${new Date(userApp.date).toLocaleDateString()}</div>
+                <div><strong>Status:</strong> Under Review</div>
+              </div>
+              <div>
+                <button class="secondary-btn" style="margin: 0 auto; padding: 8px 20px;" onclick="window.open('https://wa.me/917993936047', '_blank')">
+                  Verify on WhatsApp &nbsp;<i class="fab fa-whatsapp"></i>
+                </button>
+              </div>
+            </div>
+          `;
+        }
+      }
+    } else {
+      if (formWrapper) formWrapper.style.display = 'block';
+      if (statusContainer) statusContainer.style.display = 'none';
+    }
     
     form.onsubmit = async (e) => {
       e.preventDefault();
@@ -4693,6 +5097,7 @@ Sincerely,
         year: document.getElementById('amb-year').value,
         rollNumber: document.getElementById('amb-roll').value.trim(),
         city: document.getElementById('amb-city').value.trim(),
+        status: 'pending',
         date: new Date().toISOString()
       };
       
@@ -4820,10 +5225,22 @@ Sincerely,
       if (tbody) {
         tbody.innerHTML = '';
         if (state.ambassadorApplications.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding:16px;">No ambassador applications submitted yet.</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--text-muted); padding:16px;">No ambassador applications submitted yet.</td></tr>`;
           return;
         }
         state.ambassadorApplications.forEach(a => {
+          const isPending = a.status === 'pending' || !a.status;
+          const statusText = a.status || 'pending';
+          let badgeColor = '#ca8a04';
+          let badgeBg = 'rgba(234, 179, 8, 0.15)';
+          if (statusText === 'approved') {
+            badgeColor = '#16a34a';
+            badgeBg = 'rgba(34, 197, 94, 0.15)';
+          } else if (statusText === 'rejected') {
+            badgeColor = '#dc2626';
+            badgeBg = 'rgba(220, 38, 38, 0.15)';
+          }
+
           const tr = document.createElement('tr');
           tr.innerHTML = `
             <td><strong>${a.name}</strong><br><span style="font-size:11px; color:var(--text-muted);">${a.email}</span></td>
@@ -4831,8 +5248,82 @@ Sincerely,
             <td><strong>${a.college}</strong><br>${a.course}</td>
             <td>Roll: ${a.rollNumber}<br>City: ${a.city}</td>
             <td>${new Date(a.date).toLocaleString()}</td>
+            <td>
+              <span style="background:${badgeBg}; color:${badgeColor}; font-weight:700; padding:2px 8px; border-radius:4px; font-size:11px; text-transform:uppercase;">
+                ${statusText}
+              </span>
+            </td>
+            <td>
+              ${isPending ? `
+                <div style="display:flex; gap:6px;">
+                  <button class="secondary-btn" style="padding:2px 8px; font-size:11px; font-weight:600; background:rgba(34,197,94,0.1); color:#22c55e; border-color:#22c55e;" id="btn-admin-approve-amb-${a.id}">Approve</button>
+                  <button class="secondary-btn" style="padding:2px 8px; font-size:11px; font-weight:600; background:rgba(220,38,38,0.1); color:#dc2626; border-color:#dc2626;" id="btn-admin-reject-amb-${a.id}">Reject</button>
+                </div>
+              ` : `<span style="font-size:11px; color:var(--text-muted);">No action</span>`}
+            </td>
           `;
           tbody.appendChild(tr);
+
+          if (isPending) {
+            document.getElementById(`btn-admin-approve-amb-${a.id}`).onclick = async () => {
+              try {
+                // Find document in Firestore
+                const querySnap = await db.collection('ambassador_applications').where('id', '==', a.id).get();
+                if (!querySnap.empty) {
+                  await db.collection('ambassador_applications').doc(querySnap.docs[0].id).update({ status: 'approved' });
+                }
+                
+                // Update user role to ambassador
+                const userRef = db.collection('users').doc(a.userId);
+                const userSnap = await userRef.get();
+                if (userSnap.exists) {
+                  await userRef.update({ role: 'ambassador' });
+                }
+
+                // Push in-app notification in Firestore
+                const notifRef = db.collection('notifications').doc();
+                await notifRef.set({
+                  id: notifRef.id,
+                  recipient_id: a.userId,
+                  actor_id: state.currentUser.id,
+                  title: "Campus Ambassador Approved!",
+                  message: `Congratulations! Your Campus Ambassador application for ${a.college} has been approved.`,
+                  type: "ambassador_approval",
+                  is_read: false,
+                  created_at: new Date().toISOString()
+                });
+
+                // Queue welcome email in Firestore mail_queue
+                const mailRef = db.collection('mail_queue').doc();
+                await mailRef.set({
+                  id: mailRef.id,
+                  to: a.email,
+                  from: "eden.edworld@gmail.com",
+                  subject: "Your Campus Ambassador Application is Approved!",
+                  body: `Hi ${a.name},\n\nWe are absolutely thrilled to inform you that your application to represent EdWorld Co. as a Campus Ambassador at ${a.college} has been approved!\n\nWelcome to the team! Our onboarding coordinator will reach out to you on WhatsApp at ${a.whatsapp} shortly with instructions on how to set up your campus community hub, organize your first workshop, and earn cash referrals.\n\nBest regards,\nEdWorld Co. Ambassador Onboarding Team`,
+                  created_at: new Date().toISOString()
+                });
+
+                showToast("Ambassador application approved successfully!", "success");
+              } catch (err) {
+                console.error("Error approving ambassador:", err);
+                showToast("Failed to approve ambassador.", "danger");
+              }
+            };
+
+            document.getElementById(`btn-admin-reject-amb-${a.id}`).onclick = async () => {
+              try {
+                const querySnap = await db.collection('ambassador_applications').where('id', '==', a.id).get();
+                if (!querySnap.empty) {
+                  await db.collection('ambassador_applications').doc(querySnap.docs[0].id).update({ status: 'rejected' });
+                }
+                showToast("Ambassador application rejected.", "info");
+              } catch (err) {
+                console.error("Error rejecting ambassador:", err);
+                showToast("Failed to reject ambassador.", "danger");
+              }
+            };
+          }
         });
       }
     }
@@ -5144,8 +5635,6 @@ Sincerely,
     const aiBioBtn = document.getElementById('btn-portfolio-ai-bio');
     if (aiBioBtn) {
       aiBioBtn.onclick = async () => {
-        if (!ensureOpenRouterKey()) return;
-        
         const originalText = aiBioBtn.innerHTML;
         aiBioBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Writing...`;
         aiBioBtn.disabled = true;

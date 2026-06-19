@@ -249,6 +249,9 @@
           <li class="nav-item" data-view="connections">
             <a href="#connections"><i class="fas fa-users"></i> Connections</a>
           </li>
+          <li class="nav-item" data-view="notifications">
+            <a href="#notifications"><i class="fas fa-bell"></i> Notifications</a>
+          </li>
           <li class="nav-item" data-view="messages">
             <a href="#messages"><i class="fas fa-comments"></i> Messaging</a>
           </li>
@@ -958,7 +961,7 @@
           
           <div class="plans-grid">
             <!-- Starter -->
-            <div class="glass-panel plan-card" style="display: flex; flex-direction: column; justify-content: space-between;">
+            <div class="glass-panel plan-card" id="plan-card-Starter" onclick="window.__edcoSelectPlan('Starter', 9)" style="display: flex; flex-direction: column; justify-content: space-between; cursor: pointer; border: 2px solid transparent; padding: 24px; border-radius: 12px; transition: all 0.2s ease;">
               <div>
                 <div class="plan-header" style="margin-bottom: 20px;">
                   <h3 class="plan-name" style="font-size: 20px; margin-bottom: 8px;">Starter Plan</h3>
@@ -972,11 +975,10 @@
                   <div class="feature-item"><i class="fas fa-times" style="color: var(--accent); margin-right: 8px;"></i> No RAG AI Career Search Assistant</div>
                 </div>
               </div>
-              <button class="glow-btn pay-now-btn" style="width:100%; border-radius:12px; justify-content: center; height: 44px;" data-plan="Starter" data-price="9">Pay Now</button>
             </div>
             
             <!-- Pro -->
-            <div class="glass-panel plan-card popular" style="border: 2px solid var(--primary); position: relative; display: flex; flex-direction: column; justify-content: space-between;">
+            <div class="glass-panel plan-card popular" id="plan-card-Pro" onclick="window.__edcoSelectPlan('Pro', 29)" style="position: relative; display: flex; flex-direction: column; justify-content: space-between; cursor: pointer; border: 2px solid var(--primary); padding: 24px; border-radius: 12px; transition: all 0.2s ease;">
               <div class="popular-badge" style="background: var(--primary); color: #fff; font-size: 11px; padding: 4px 8px; border-radius: 4px; position: absolute; top: -12px; right: 16px; font-weight: 700;"><i class="fas fa-star"></i> Recommended</div>
               <div>
                 <div class="plan-header" style="margin-bottom: 20px;">
@@ -991,11 +993,10 @@
                   <div class="feature-item"><i class="fas fa-check" style="color: var(--success); margin-right: 8px;"></i> 50 applications / month & basic AI</div>
                 </div>
               </div>
-              <button class="glow-btn pay-now-btn" style="width:100%; border-radius:12px; justify-content: center; height: 44px;" data-plan="Pro" data-price="29">Pay Now</button>
             </div>
             
             <!-- Elite -->
-            <div class="glass-panel plan-card" style="display: flex; flex-direction: column; justify-content: space-between;">
+            <div class="glass-panel plan-card" id="plan-card-Elite" onclick="window.__edcoSelectPlan('Elite', 79)" style="display: flex; flex-direction: column; justify-content: space-between; cursor: pointer; border: 2px solid transparent; padding: 24px; border-radius: 12px; transition: all 0.2s ease;">
               <div>
                 <div class="plan-header" style="margin-bottom: 20px;">
                   <h3 class="plan-name" style="font-size: 20px; margin-bottom: 8px;">Elite Plan</h3>
@@ -1009,9 +1010,13 @@
                   <div class="feature-item"><i class="fas fa-check" style="color: var(--success); margin-right: 8px;"></i> Featured profile placement</div>
                 </div>
               </div>
-              <button class="glow-btn pay-now-btn" style="width:100%; border-radius:12px; justify-content: center; height: 44px;" data-plan="Elite" data-price="79">Pay Now</button>
             </div>
           </div>
+          
+          <div style="text-align: center; margin-top: 32px;">
+            <button class="glow-btn" id="btn-subscribe-selected-plan" style="margin: auto; width: 320px; justify-content: center; height: 48px; border-radius: 12px; font-size: 16px; display: inline-flex;">
+              Subscribe to Selected Plan &nbsp;<i class="fas fa-arrow-right"></i>
+            </button>
           
           <!-- Status info -->
           <div id="user-current-plan-banner" style="max-width: 600px; margin: 32px auto 0 auto; text-align: center; font-size: 14px; padding: 12px; border-radius: 8px;"></div>
@@ -1022,78 +1027,82 @@
           <div class="glass-panel form-card-container" style="max-width: 700px; margin: auto; padding: 32px;">
             <h2 style="font-size: 28px; margin-bottom: 8px; text-align: center;"><i class="fas fa-award" style="color: var(--warning);"></i> Campus Ambassador Program</h2>
             <p style="color: var(--text-secondary); text-align: center; margin-bottom: 24px; font-size: 14px;">Apply to represent Edworld Co. at your college. Organize events, build community, and earn exclusive rewards & cash incentives!</p>
+            <div id="ambassador-form-wrapper">
+              <form id="ambassador-application-form">
+                <!-- Personal Details -->
+                <h3 style="font-size: 16px; margin-bottom: 16px; padding-bottom: 6px; border-bottom: 1px solid var(--border-card); color: var(--primary); text-align: left;">Personal Details</h3>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                  <div class="form-group">
+                    <label class="form-label" for="amb-name">Full Name</label>
+                    <input type="text" id="amb-name" class="form-input" placeholder="Alice Chen" required>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label" for="amb-email">Email Address</label>
+                    <input type="email" id="amb-email" class="form-input" placeholder="alice@university.edu" required>
+                  </div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                  <div class="form-group">
+                    <label class="form-label" for="amb-phone">Phone Number</label>
+                    <input type="text" id="amb-phone" class="form-input" placeholder="e.g. +91 98765 43210" required>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label" for="amb-whatsapp">WhatsApp Number</label>
+                    <input type="text" id="amb-whatsapp" class="form-input" placeholder="e.g. +91 98765 43210" required>
+                  </div>
+                </div>
+                
+                <div class="form-group" style="margin-bottom: 24px;">
+                  <label class="form-label" for="amb-linkedin"><i class="fab fa-linkedin" style="color:#0a66c2;"></i> LinkedIn or Social Profile URL</label>
+                  <input type="url" id="amb-linkedin" class="form-input" placeholder="https://linkedin.com/in/username" required>
+                </div>
+                
+                <!-- College & Academic Details -->
+                <h3 style="font-size: 16px; margin-bottom: 16px; padding-bottom: 6px; border-bottom: 1px solid var(--border-card); color: var(--primary); text-align: left;">College & Academic Parameters</h3>
+                
+                <div class="form-group" style="margin-bottom: 16px;">
+                  <label class="form-label" for="amb-college">College / University Name</label>
+                  <input type="text" id="amb-college" class="form-input" placeholder="e.g. GITAM University" required>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                  <div class="form-group">
+                    <label class="form-label" for="amb-course">Course / Degree</label>
+                    <input type="text" id="amb-course" class="form-input" placeholder="e.g. B.Tech" required>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label" for="amb-year">Current Year</label>
+                    <select id="amb-year" class="form-input">
+                      <option value="1">1st Year</option>
+                      <option value="2">2nd Year</option>
+                      <option value="3">3rd Year</option>
+                      <option value="4" selected>4th Year</option>
+                    </select>
+                  </div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px;">
+                  <div class="form-group">
+                    <label class="form-label" for="amb-roll">Student ID / Roll Number</label>
+                    <input type="text" id="amb-roll" class="form-input" placeholder="e.g. 2210316010" required>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label" for="amb-city">College City</label>
+                    <input type="text" id="amb-city" class="form-input" placeholder="e.g. Visakhapatnam" required>
+                  </div>
+                </div>
+                
+                <button type="submit" class="glow-btn" style="width: 100%; justify-content: center; height: 48px; border-radius: 12px; font-size: 16px;">
+                  Submit Application & Verify on WhatsApp &nbsp;<i class="fab fa-whatsapp"></i>
+                </button>
+              </form>
+            </div>
             
-            <form id="ambassador-application-form">
-              <!-- Personal Details -->
-              <h3 style="font-size: 16px; margin-bottom: 16px; padding-bottom: 6px; border-bottom: 1px solid var(--border-card); color: var(--primary);">Personal Details</h3>
-              
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
-                <div class="form-group">
-                  <label class="form-label" for="amb-name">Full Name</label>
-                  <input type="text" id="amb-name" class="form-input" placeholder="Alice Chen" required>
-                </div>
-                <div class="form-group">
-                  <label class="form-label" for="amb-email">Email Address</label>
-                  <input type="email" id="amb-email" class="form-input" placeholder="alice@university.edu" required>
-                </div>
-              </div>
-              
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
-                <div class="form-group">
-                  <label class="form-label" for="amb-phone">Phone Number</label>
-                  <input type="tel" id="amb-phone" class="form-input" placeholder="+1 (555) 019-2834" required>
-                </div>
-                <div class="form-group">
-                  <label class="form-label" for="amb-whatsapp">WhatsApp Number</label>
-                  <input type="tel" id="amb-whatsapp" class="form-input" placeholder="+91 7993936047" required>
-                </div>
-              </div>
-              
-              <div class="form-group" style="margin-bottom: 24px;">
-                <label class="form-label" for="amb-linkedin">LinkedIn / GitHub Profile URL</label>
-                <input type="url" id="amb-linkedin" class="form-input" placeholder="https://linkedin.com/in/username" required>
-              </div>
-              
-              <!-- College Details -->
-              <h3 style="font-size: 16px; margin-bottom: 16px; padding-bottom: 6px; border-bottom: 1px solid var(--border-card); color: var(--primary);">College Details</h3>
-              
-              <div class="form-group" style="margin-bottom: 16px;">
-                <label class="form-label" for="amb-college">College / University Name</label>
-                <input type="text" id="amb-college" class="form-input" placeholder="GITAM University" required>
-              </div>
-              
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
-                <div class="form-group">
-                  <label class="form-label" for="amb-course">Course / Major</label>
-                  <input type="text" id="amb-course" class="form-input" placeholder="B.Tech Computer Science" required>
-                </div>
-                <div class="form-group">
-                  <label class="form-label" for="amb-year">Year of Study</label>
-                  <select id="amb-year" class="filter-select" style="width: 100%; height: 42px; border-radius: 8px; background: var(--bg-dark); color: var(--text-main); border: 1px solid var(--border-card); padding: 0 12px;" required>
-                    <option value="1">1st Year</option>
-                    <option value="2">2nd Year</option>
-                    <option value="3">3rd Year</option>
-                    <option value="4">4th Year</option>
-                    <option value="5">Post-Graduate</option>
-                  </select>
-                </div>
-              </div>
-              
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px;">
-                <div class="form-group">
-                  <label class="form-label" for="amb-roll">Student Roll Number / ID</label>
-                  <input type="text" id="amb-roll" class="form-input" placeholder="1219030042" required>
-                </div>
-                <div class="form-group">
-                  <label class="form-label" for="amb-city">College City / State</label>
-                  <input type="text" id="amb-city" class="form-input" placeholder="Visakhapatnam, AP" required>
-                </div>
-              </div>
-              
-              <button type="submit" class="glow-btn" style="width: 100%; justify-content: center; height: 48px; border-radius: 12px; font-size: 16px;">
-                Submit Application & Verify on WhatsApp &nbsp;<i class="fab fa-whatsapp"></i>
-              </button>
-            </form>
+            <div id="ambassador-status-container" style="display: none; padding: 16px;">
+              <!-- Loaded dynamically via app.js -->
+            </div>
           </div>
         </section>
 
@@ -1163,6 +1172,8 @@
                       <th>College & Course</th>
                       <th>Roll No & City</th>
                       <th>Submitted Date</th>
+                      <th>Status</th>
+                      <th>Actions</th>
                     </tr>
                   </thead>
                   <tbody id="admin-ambassadors-rows"></tbody>
@@ -1226,6 +1237,58 @@
                 </div>
                 
                 <button class="glow-btn" id="btn-admin-save-ai-config" style="width: 100%; justify-content: center; height: 40px; border-radius: 8px;">Save AI Configuration</button>
+              </div>
+            </div>
+          </div>
+        </section>
+        <!-- SECTION: NOTIFICATIONS WORKSPACE -->
+        <section id="view-notifications" class="view-section" style="display: none;">
+          <div style="margin-bottom: 24px;">
+            <h1 style="font-size: 28px;"><i class="fas fa-bell"></i> Notifications Workspace</h1>
+            <p style="color: var(--text-secondary);">Manage incoming connection requests, read announcements, and interact with messages.</p>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start;">
+            <!-- Left Side: Connection Requests & Inbound Messages -->
+            <div class="glass-panel" style="padding: 24px; border-radius: 12px; border: 1px solid var(--border-card);">
+              <h2 style="font-size: 18px; margin-bottom: 16px; border-bottom: 1px solid var(--border-card); padding-bottom: 8px;">
+                <i class="fas fa-users-cog" style="color: var(--primary);"></i> Inbound Connection Invites
+              </h2>
+              <div id="connections-requests-list" style="display: flex; flex-direction: column; gap: 12px;">
+                <!-- Loaded dynamically via js -->
+              </div>
+            </div>
+
+            <!-- Right Side: Bulk Announcements or Admin Email Composer -->
+            <div class="glass-panel" style="padding: 24px; border-radius: 12px; border: 1px solid var(--border-card);">
+              <!-- Admin Composer: visible to admin users -->
+              <div id="notifications-admin-composer" style="display: none;">
+                <h2 style="font-size: 18px; margin-bottom: 16px; border-bottom: 1px solid var(--border-card); padding-bottom: 8px; color: var(--warning);">
+                  <i class="fas fa-paper-plane"></i> Send Admin Bulk Mail
+                </h2>
+                <form id="admin-bulk-mail-form" class="auth-form" style="gap: 12px; display: flex; flex-direction: column;">
+                  <div class="form-group">
+                    <label class="form-label" for="bulk-mail-subject">Subject</label>
+                    <input type="text" id="bulk-mail-subject" class="form-input" placeholder="e.g. Important Platform Announcement" required>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label" for="bulk-mail-message">Message Body</label>
+                    <textarea id="bulk-mail-message" class="form-input" style="height: 120px; resize: none;" placeholder="Compose your announcement message here..." required></textarea>
+                  </div>
+                  <button type="submit" class="glow-btn" style="width: 100%; justify-content: center; height: 40px; border-radius: 8px;">
+                    Send Bulk Email &nbsp;<i class="fas fa-envelope-open-text"></i>
+                  </button>
+                </form>
+              </div>
+
+              <!-- General announcements log: visible to normal students/users -->
+              <div id="notifications-user-announcements">
+                <h2 style="font-size: 18px; margin-bottom: 16px; border-bottom: 1px solid var(--border-card); padding-bottom: 8px;">
+                  <i class="fas fa-bullhorn" style="color: var(--primary);"></i> Admin Announcements
+                </h2>
+                <div id="user-announcements-list" style="display: flex; flex-direction: column; gap: 12px;">
+                  <!-- Loaded dynamically via js -->
+                </div>
               </div>
             </div>
           </div>
