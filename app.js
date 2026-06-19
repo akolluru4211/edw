@@ -1039,16 +1039,25 @@
     auth.onAuthStateChanged(async (firebaseUser) => {
       const authOverlay = document.getElementById('auth-overlay');
       if (firebaseUser) {
-        // User is logged in
         const userRef = db.collection('users').doc(firebaseUser.uid);
         const userSnap = await userRef.get();
-        
         if (!userSnap.exists) {
           // User document does not exist, trigger onboarding wizard
+          let oauthEmail = firebaseUser.email;
+          if (!oauthEmail && firebaseUser.providerData) {
+            for (const profile of firebaseUser.providerData) {
+              if (profile.email) {
+                oauthEmail = profile.email;
+                break;
+              }
+            }
+          }
+          const defaultEmail = oauthEmail || `${firebaseUser.uid}@${(firebaseUser.providerData?.[0]?.providerId || 'oauth').split('.')[0]}.placeholder.com`;
+
           state.currentUser = {
             id: firebaseUser.uid,
-            name: firebaseUser.displayName || (firebaseUser.email ? firebaseUser.email.split('@')[0] : `User_${firebaseUser.uid.slice(0, 6)}`),
-            email: firebaseUser.email || `${firebaseUser.uid}@${(firebaseUser.providerData[0]?.providerId || 'oauth').split('.')[0]}.placeholder.com`,
+            name: firebaseUser.displayName || (defaultEmail ? defaultEmail.split('@')[0] : `User_${firebaseUser.uid.slice(0, 6)}`),
+            email: defaultEmail,
             headline: "Student Learner",
             location: "San Francisco, CA",
             bio: "Mastering development stack on EdWorld Co.",
@@ -1083,18 +1092,29 @@
           state.currentUser = userSnap.data();
           authOverlay.style.display = 'none';
           
-          // Check if name or email is missing and update if available from provider
+          // Check if name or email is missing/placeholder and update if available from provider
           let needsUpdate = false;
+          
+          let oauthEmail = firebaseUser.email;
+          if (!oauthEmail && firebaseUser.providerData) {
+            for (const profile of firebaseUser.providerData) {
+              if (profile.email) {
+                oauthEmail = profile.email;
+                break;
+              }
+            }
+          }
+
           if (!state.currentUser.name && firebaseUser.displayName) {
             state.currentUser.name = firebaseUser.displayName;
             needsUpdate = true;
           }
-          if (!state.currentUser.name && firebaseUser.email) {
-            state.currentUser.name = firebaseUser.email.split('@')[0];
+          if (!state.currentUser.name && oauthEmail) {
+            state.currentUser.name = oauthEmail.split('@')[0];
             needsUpdate = true;
           }
-          if (!state.currentUser.email && firebaseUser.email) {
-            state.currentUser.email = firebaseUser.email;
+          if (oauthEmail && (!state.currentUser.email || state.currentUser.email.includes('.placeholder.com'))) {
+            state.currentUser.email = oauthEmail;
             needsUpdate = true;
           }
           if (needsUpdate) {
@@ -1102,7 +1122,7 @@
               name: state.currentUser.name,
               email: state.currentUser.email
             });
-          }
+        }
           
           // Post-login redirect to #dashboard if we are on landing/login page
           if (!window.location.hash || window.location.hash === '#login' || window.location.hash === '#') {
