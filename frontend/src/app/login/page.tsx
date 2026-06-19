@@ -6,10 +6,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Sparkles, Mail, Lock, ShieldAlert, ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
-import OAuthButtons from '@/components/OAuthButtons';
-
 export default function Login() {
-  const { user, login, loginWithOAuth, loading } = useAuth();
+  const { user, login, loading } = useAuth();
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -37,21 +35,7 @@ export default function Login() {
     }
   };
 
-  const handleOAuth = async (provider: 'google' | 'github') => {
-    setError(null);
-    try {
-      await loginWithOAuth(provider);
-    } catch (err: any) {
-      const msg = err.message || '';
-      if (msg.includes('auth/account-exists-with-different-credential')) {
-        setError('An account exists with this email using a different sign-in method. Please use that method to sign in.');
-      } else if (msg.toLowerCase().includes('network error') || msg.toLowerCase().includes('failed to fetch')) {
-        setError('Unable to connect. Please check your internet connection and try again.');
-      } else {
-        setError(`${provider} sign-in failed. Please try again.`);
-      }
-    }
-  };
+
 
   return (
     <div className="flex min-h-screen w-full bg-slate-50">
@@ -118,7 +102,7 @@ export default function Login() {
             </button>
           </form>
 
-          <OAuthButtons onOAuth={handleOAuth} />
+
 
           <div className="text-center mt-8 pt-6 border-t border-slate-100">
             <p className="text-slate-500 text-xs font-semibold">

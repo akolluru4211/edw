@@ -6,10 +6,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { User, GraduationCap, Target, ArrowRight, ArrowLeft, Check, ShieldAlert, Plus, X } from 'lucide-react';
-import OAuthButtons from '@/components/OAuthButtons';
-
 export default function Register() {
-  const { user, registerUser, loginWithOAuth, loading } = useAuth();
+  const { user, registerUser, loading } = useAuth();
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [error, setError] = useState<string | null>(null);
@@ -27,17 +25,7 @@ export default function Register() {
   const [goals, setGoals] = useState<string[]>([]);
   const [customGoal, setCustomGoal] = useState('');
 
-  const handleOAuth = async (provider: 'google' | 'github') => {
-    setError(null);
-    try { await loginWithOAuth(provider); } catch (err: any) {
-      const msg = err.message || '';
-      if (msg.toLowerCase().includes('network error') || msg.toLowerCase().includes('failed to fetch')) {
-        setError('Unable to connect. Please check your internet connection and try again.');
-      } else {
-        setError(`${provider} sign-in failed. Please try again.`);
-      }
-    }
-  };
+
 
   useEffect(() => { if (user) router.push('/'); }, [user, router]);
 
@@ -122,7 +110,7 @@ export default function Register() {
                 <div><label className="block text-slate-600 font-semibold text-xs mb-2">Password (min 6 characters)</label><input type="password" required placeholder="••••••••••••" value={password} onChange={(e) => setPassword(e.target.value)} className={inputClass} /></div>
                 <div><label className="block text-slate-600 font-semibold text-xs mb-2">Phone Number (Optional)</label><input type="tel" placeholder="+1 (555) 019-2834" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} className={inputClass} /></div>
                 <div><label className="block text-slate-600 font-semibold text-xs mb-2">Date of Birth (Optional)</label><input type="date" value={dob} onChange={(e) => setDob(e.target.value)} className={inputClass} /></div>
-                <OAuthButtons onOAuth={handleOAuth} label="Or register with" />
+
               </motion.div>
             )}
 
