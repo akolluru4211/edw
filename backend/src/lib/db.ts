@@ -21,10 +21,11 @@ function findServiceAccount(): Record<string, any> | null {
 
   if (pKey && cEmail && projId) {
     try {
+      const cleanKey = pKey.replace(/\\n/g, '\n').replace(/^"(.*)"$/, '$1').trim();
       return {
         projectId: projId,
         clientEmail: cEmail,
-        privateKey: pKey.replace(/\\n/g, '\n')
+        privateKey: cleanKey
       };
     } catch (e: any) {
       console.error('Failed to construct service account from env vars:', e.message);
