@@ -1,11 +1,16 @@
-import { Router } from 'express';
-import { register, login, logout, me, verifyFirebaseToken } from '../controllers/auth';
+import { Router } from 'express'
+import { register, login, getMe, requestPasswordReset, verifyAndResetPassword, saveKeys, firebaseLogin } from '../controllers/auth'
+import { authenticateToken } from '../middlewares/auth'
 
-const router = Router();
+const router = Router()
 
-router.post('/register', register);
-router.post('/login', login);
-router.post('/logout', logout);
-router.get('/me', verifyFirebaseToken, me);
+router.post('/register', register)
+router.post('/login', login)
+router.post('/forgot-password', requestPasswordReset)
+router.post('/reset-password', verifyAndResetPassword)
+router.post('/save-keys', authenticateToken, saveKeys)
+router.post('/firebase-login', firebaseLogin)
+router.get('/me', authenticateToken, getMe)
 
-export default router;
+export default router
+

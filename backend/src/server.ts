@@ -1,8 +1,7 @@
 import express from 'express'
 import cors from 'cors'
 import dotenv from 'dotenv'
-import cookieParser from 'cookie-parser';
-import path from 'path';
+import path from 'path'
 import authRoutes from './routes/auth'
 import profileRoutes from './routes/profile'
 import resumeRoutes from './routes/resume'
@@ -24,7 +23,6 @@ const PORT = process.env.PORT || 5000
 app.use(cors())
 app.use(express.json({ limit: '10mb' }))
 app.use(express.urlencoded({ extended: true }))
-app.use(cookieParser())
 
 // Serve uploaded files (resumes, etc.) as static assets with caching
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads'), {
