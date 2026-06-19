@@ -995,7 +995,7 @@
     }).catch(err => {
       if (err.code) {
         console.error('Redirect sign-in error:', err.code, err.message);
-        showToast(getAuthErrorMessage(err.code), "danger");
+        showToast(`${getAuthErrorMessage(err.code)} Details: ${err.message} (${err.code})`, "danger");
       }
     });
 
@@ -1187,14 +1187,14 @@
           await auth.signInWithRedirect(provider);
         } catch (redirectErr) {
           console.error(`${providerName} redirect error:`, redirectErr);
-          showToast(getAuthErrorMessage(redirectErr.code), "danger");
+          showToast(`${getAuthErrorMessage(redirectErr.code)} Details: ${redirectErr.message} (${redirectErr.code})`, "danger");
         }
       } else if (err.code === 'auth/unauthorized-domain') {
-        showToast("This domain is not authorized for sign-in. Please contact the administrator to add this domain to Firebase Auth settings.", "danger");
+        showToast("This domain is not authorized for sign-in. Please add this domain to Firebase Auth > Authorized Domains settings.", "danger");
       } else if (err.code === 'auth/account-exists-with-different-credential') {
         showToast("An account already exists with this email using a different sign-in method. Try signing in with email/password or the other provider.", "danger");
       } else {
-        showToast(getAuthErrorMessage(err.code), "danger");
+        showToast(`${getAuthErrorMessage(err.code)} Details: ${err.message} (${err.code})`, "danger");
       }
     }
   }
