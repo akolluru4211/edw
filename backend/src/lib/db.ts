@@ -14,6 +14,23 @@ function findServiceAccount(): Record<string, any> | null {
     }
   }
 
+  // 1.5. Individual environment variables (common in Vercel)
+  const pKey = process.env.privateKey || process.env.PRIVATE_KEY || process.env.FIREBASE_PRIVATE_KEY;
+  const cEmail = process.env.clientEmail || process.env.CLIENT_EMAIL || process.env.FIREBASE_CLIENT_EMAIL;
+  const projId = process.env.projectId || process.env.PROJECT_ID || process.env.FIREBASE_PROJECT_ID;
+
+  if (pKey && cEmail && projId) {
+    try {
+      return {
+        projectId: projId,
+        clientEmail: cEmail,
+        privateKey: pKey.replace(/\\n/g, '\n')
+      };
+    } catch (e: any) {
+      console.error('Failed to construct service account from env vars:', e.message);
+    }
+  }
+
   // 2. Search multiple possible paths for service-account.json
   const candidates = [
     path.join(process.cwd(), 'service-account.json'),
