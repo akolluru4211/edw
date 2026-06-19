@@ -509,64 +509,37 @@
   // ==========================================
   // 1b. FIREBASE CLOUD MESSAGING (FCM) — GRACEFUL INIT
   // ==========================================
+  // Note: FCM push notifications are disabled until a valid VAPID key is configured.
+  // To enable, set VAPID_KEY below from Firebase Console > Project Settings > Cloud Messaging > Web Push certificates.
+  const VAPID_KEY = ''; // Set your VAPID key here to enable FCM
   let messaging = null;
-  try {
-    if ('Notification' in window && firebase.messaging && firebase.messaging.isSupported()) {
-      messaging = firebase.messaging();
-      console.log('[FCM] Messaging instance initialized successfully.');
-    } else {
-      console.warn('[FCM] Push notifications are not supported in this browser environment.');
+
+  if (VAPID_KEY) {
+    try {
+      if ('Notification' in window && firebase.messaging && firebase.messaging.isSupported()) {
+        messaging = firebase.messaging();
+      }
+    } catch (e) {
+      messaging = null;
     }
-  } catch (fcmInitErr) {
-    console.warn('[FCM] Failed to initialize messaging:', fcmInitErr.message);
-    messaging = null;
   }
 
-  /**
-   * Request FCM push notification permission and subscribe for a token.
-   * Handles all failure modes gracefully with user-facing toasts.
-   */
   async function requestFCMPermission() {
-    if (!messaging) {
-      console.warn('[FCM] Messaging not available — skipping permission request.');
-      return null;
-    }
+    if (!messaging || !VAPID_KEY) return null;
     try {
       const permission = await Notification.requestPermission();
       if (permission !== 'granted') {
-        console.warn('[FCM] Notification permission denied by user.');
-        showToast('Notifications are disabled. Enable them in your browser settings to receive updates.', 'warning');
+        showToast('Notifications are disabled. Enable them in your browser settings.', 'warning');
         return null;
       }
-      // Attempt to get the FCM token
-      const token = await messaging.getToken({
-        vapidKey: firebaseConfig.messagingSenderId // fallback; real VAPID key should be set in production
-      });
-      if (token) {
-        console.log('[FCM] Token obtained:', token.substring(0, 20) + '...');
-        // Save token to user profile in Firestore
-        if (state.currentUser) {
-          await db.collection('users').doc(state.currentUser.id).update({ fcmToken: token });
-        }
+      const token = await messaging.getToken({ vapidKey: VAPID_KEY });
+      if (token && state.currentUser) {
+        await db.collection('users').doc(state.currentUser.id).update({ fcmToken: token });
         return token;
-      } else {
-        console.warn('[FCM] No registration token available. Request permission to generate one.');
-        return null;
       }
+      return null;
     } catch (fcmErr) {
-      // Catch specific known error codes
-      const errCode = fcmErr.code || '';
-      const errMsg = fcmErr.message || '';
-      if (errCode.includes('token-subscribe-failed') || errMsg.includes('token-subscribe-failed')) {
-        console.warn('[FCM] Token subscription failed. This usually means the VAPID key or Cloud Messaging API key is misconfigured. Check Firebase Console > Project Settings > Cloud Messaging.');
-        showToast('Push notification setup failed: API key mismatch. Check your Firebase Cloud Messaging configuration.', 'warning');
-      } else if (errCode.includes('permission-blocked')) {
-        console.warn('[FCM] Notifications blocked by browser settings.');
-        showToast('Notifications blocked by your browser. Enable them in site settings.', 'warning');
-      } else {
-        console.warn('[FCM] Unexpected error during token retrieval:', errMsg);
-        showToast('Could not enable push notifications. You\'ll still receive in-app alerts.', 'warning');
-      }
+      showToast('Could not enable push notifications. You\'ll still receive in-app alerts.', 'warning');
       return null;
     }
   }
@@ -575,14 +548,11 @@
   if (messaging) {
     try {
       messaging.onMessage((payload) => {
-        console.log('[FCM] Foreground message received:', payload);
         const title = payload.notification?.title || 'EdWorld Co';
         const body = payload.notification?.body || 'You have a new notification.';
         showToast(`${title}: ${body}`, 'info');
       });
-    } catch (e) {
-      console.warn('[FCM] Could not set up foreground message listener:', e.message);
-    }
+    } catch (e) { /* FCM listener not available */ }
   }
 
   let state = {
@@ -1017,6 +987,18 @@
   }
 
   function checkAuth() {
+    // Handle redirect result from signInWithRedirect (runs once on page load)
+    auth.getRedirectResult().then(result => {
+      if (result.user) {
+        showToast("Successfully signed in!", "success");
+      }
+    }).catch(err => {
+      if (err.code) {
+        console.error('Redirect sign-in error:', err.code, err.message);
+        showToast(getAuthErrorMessage(err.code), "danger");
+      }
+    });
+
     // Listen for Firebase Auth changes
     auth.onAuthStateChanged(async (firebaseUser) => {
       const authOverlay = document.getElementById('auth-overlay');
@@ -1192,11 +1174,28 @@
     }
     
     try {
+      // Try popup first
       await auth.signInWithPopup(provider);
       showToast(`Authenticated via ${providerName}!`, "success");
     } catch (err) {
-      console.error(`${providerName} login error`, err);
-      showToast(getAuthErrorMessage(err.code), "danger");
+      console.error(`${providerName} login error:`, err.code, err.message);
+      
+      if (err.code === 'auth/popup-blocked' || err.code === 'auth/popup-closed-by-user') {
+        // Fallback to redirect method
+        showToast("Popup was blocked. Redirecting to sign in...", "warning");
+        try {
+          await auth.signInWithRedirect(provider);
+        } catch (redirectErr) {
+          console.error(`${providerName} redirect error:`, redirectErr);
+          showToast(getAuthErrorMessage(redirectErr.code), "danger");
+        }
+      } else if (err.code === 'auth/unauthorized-domain') {
+        showToast("This domain is not authorized for sign-in. Please contact the administrator to add this domain to Firebase Auth settings.", "danger");
+      } else if (err.code === 'auth/account-exists-with-different-credential') {
+        showToast("An account already exists with this email using a different sign-in method. Try signing in with email/password or the other provider.", "danger");
+      } else {
+        showToast(getAuthErrorMessage(err.code), "danger");
+      }
     }
   }
 
