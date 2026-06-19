@@ -5,6 +5,61 @@ import path from 'path';
 import fs from 'fs';
 
 function findServiceAccount(): Record<string, any> | null {
+  // 1. Explicit JSON in env var
+  if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+    try {
+      return JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+    } catch (e: any) {
+      console.error('Failed to parse FIREBASE_SERVICE_ACCOUNT env var:', e.message);
+    }
+  }
+
+  // 2. Credential object env var (legacy)
+  if (process.env.credential) {
+    try {
+      return JSON.parse(process.env.credential);
+    } catch (e: any) {
+      console.error('Failed to parse credential env var:', e.message);
+    }
+  }
+
+  // 3. Individual Vercel env vars (privateKey, clientEmail, projectId)
+  const pKey = process.env.privateKey || process.env.PRIVATE_KEY || process.env.FIREBASE_PRIVATE_KEY;
+  const cEmail = process.env.clientEmail || process.env.CLIENT_EMAIL || process.env.FIREBASE_CLIENT_EMAIL;
+  const projId = process.env.projectId || process.env.PROJECT_ID || process.env.FIREBASE_PROJECT_ID;
+  if (pKey && cEmail && projId) {
+    try {
+      const cleanKey = pKey.replace(/\\n/g, '\n').replace(/^\"(.*)\"$/, '$1').trim();
+      return {
+        project_id: projId,
+        client_email: cEmail,
+        private_key: cleanKey,
+      };
+    } catch (e: any) {
+      console.error('Failed to construct service account from env vars:', e.message);
+    }
+  }
+
+  // 4. Search for service-account.json in common locations
+  const candidates = [
+    path.join(process.cwd(), 'service-account.json'),
+    path.join(process.cwd(), 'backend', 'service-account.json'),
+    path.join(__dirname, '..', '..', 'service-account.json'),
+    path.join(__dirname, '..', '..', '..', 'service-account.json'),
+  ];
+  for (const p of candidates) {
+    if (fs.existsSync(p)) {
+      try {
+        console.log(`Firebase Admin SDK: found service account at ${p}`);
+        return JSON.parse(fs.readFileSync(p, 'utf8'));
+      } catch (e: any) {
+        console.error(`Failed to parse ${p}:`, e.message);
+      }
+    }
+  }
+
+  return null;
+}
   // 1. FIREBASE_SERVICE_ACCOUNT env var
   if (process.env.FIREBASE_SERVICE_ACCOUNT) {
     try {
@@ -14,6 +69,7 @@ function findServiceAccount(): Record<string, any> | null {
     }
   }
 
+<<<<<<< HEAD
   // 1.2. credential env var (commonly used in this project)
   if (process.env.credential) {
     try {
@@ -33,13 +89,34 @@ function findServiceAccount(): Record<string, any> | null {
         project_id: projId,
         client_email: cEmail,
         private_key: cleanKey
+=======
+  // 2. Fallback to individual Vercel env vars
+  if (
+    process.env.credential &&
+    process.env.privateKey &&
+    process.env.clientEmail &&
+    process.env.projectId
+  ) {
+    try {
+      return {
+        type: 'service_account',
+        project_id: process.env.projectId,
+        private_key_id: 'vercel-generated',
+        private_key: process.env.privateKey.replace(/\\n/g, '\n'),
+        client_email: process.env.clientEmail,
+        client_id: 'vercel-generated',
+>>>>>>> 79b4104 (Rewrite auth controller and routes, add cookie-parser middleware)
       };
     } catch (e: any) {
       console.error('Failed to construct service account from env vars:', e.message);
     }
   }
 
+<<<<<<< HEAD
   // 2. Search multiple possible paths for service-account.json
+=======
+  // 3. Search multiple possible paths for service-account.json
+>>>>>>> 79b4104 (Rewrite auth controller and routes, add cookie-parser middleware)
   const candidates = [
     path.join(process.cwd(), 'service-account.json'),
     path.join(process.cwd(), 'backend', 'service-account.json'),
@@ -60,6 +137,7 @@ function findServiceAccount(): Record<string, any> | null {
 
   return null;
 }
+
 
 const PROJECT_ID = 'edworld-career-os-2026';
 
