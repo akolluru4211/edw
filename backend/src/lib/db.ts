@@ -14,7 +14,14 @@ function findServiceAccount(): Record<string, any> | null {
     }
   }
 
-  // 1.5. Individual environment variables (common in Vercel)
+  // 1.2. credential env var (commonly used in this project)
+  if (process.env.credential) {
+    try {
+      return JSON.parse(process.env.credential);
+    } catch (e: any) {
+      console.error('Failed to parse credential env var:', e.message);
+    }
+  }
   const pKey = process.env.privateKey || process.env.PRIVATE_KEY || process.env.FIREBASE_PRIVATE_KEY;
   const cEmail = process.env.clientEmail || process.env.CLIENT_EMAIL || process.env.FIREBASE_CLIENT_EMAIL;
   const projId = process.env.projectId || process.env.PROJECT_ID || process.env.FIREBASE_PROJECT_ID;
