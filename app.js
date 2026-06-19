@@ -746,7 +746,11 @@
 
     // Stream users
     unsubscribeStreams.push(db.collection('users').onSnapshot(snap => {
-      state.users = snap.docs.map(doc => doc.data());
+      state.users = snap.docs.map(doc => {
+        const d = doc.data();
+        d.id = d.id || doc.id;
+        return d;
+      });
       updateGlobalUserData();
       
       const viewName = window.location.hash.replace('#', '') || 'dashboard';
@@ -757,7 +761,11 @@
 
     // Stream connections
     unsubscribeStreams.push(db.collection('connections').onSnapshot(snap => {
-      state.connections = snap.docs.map(doc => doc.data());
+      state.connections = snap.docs.map(doc => {
+        const d = doc.data();
+        d.id = d.id || doc.id;
+        return d;
+      });
       const viewName = window.location.hash.replace('#', '') || 'dashboard';
       if (viewName === 'connections') {
         renderConnectionsList();
@@ -768,7 +776,11 @@
 
     // Stream projects
     unsubscribeStreams.push(db.collection('projects').onSnapshot(snap => {
-      state.projects = snap.docs.map(doc => doc.data());
+      state.projects = snap.docs.map(doc => {
+        const d = doc.data();
+        d.id = d.id || doc.id;
+        return d;
+      });
       const viewName = window.location.hash.replace('#', '') || 'dashboard';
       if (viewName === 'projects') renderProjectsGrid();
     }));
@@ -778,7 +790,11 @@
       unsubscribeStreams.push(db.collection('notifications')
         .where('recipient_id', '==', state.currentUser.id)
         .onSnapshot(snap => {
-          state.notifications = snap.docs.map(doc => doc.data());
+          state.notifications = snap.docs.map(doc => {
+            const d = doc.data();
+            d.id = d.id || doc.id;
+            return d;
+          });
           updateGlobalUserData();
           const dropdown = document.getElementById('dropdown-notifications');
           if (dropdown && dropdown.classList.contains('active')) {
@@ -791,7 +807,7 @@
     unsubscribeStreams.push(db.collection('opportunities').onSnapshot(snap => {
       state.opportunities = snap.docs.map(doc => {
         const d = doc.data();
-        if (!d.id) d.id = doc.id;
+        d.id = d.id || doc.id;
         return d;
       });
       
@@ -805,7 +821,11 @@
 
     // Stream events & gigs
     unsubscribeStreams.push(db.collection('events_gigs').onSnapshot(snap => {
-      state.eventsGigs = snap.docs.map(doc => doc.data());
+      state.eventsGigs = snap.docs.map(doc => {
+        const d = doc.data();
+        d.id = d.id || doc.id;
+        return d;
+      });
       const viewName = window.location.hash.replace('#', '') || 'dashboard';
       if (viewName === 'dashboard') renderDashboardEventsGigs();
       if (viewName === 'events-gigs') renderEventsGigsView();
@@ -813,28 +833,44 @@
 
     // Stream payments
     unsubscribeStreams.push(db.collection('payments').onSnapshot(snap => {
-      state.purchases = snap.docs.map(doc => doc.data());
+      state.purchases = snap.docs.map(doc => {
+        const d = doc.data();
+        d.id = d.id || doc.id;
+        return d;
+      });
       const viewName = window.location.hash.replace('#', '') || 'dashboard';
       if (viewName === 'admin') renderAdminPane();
     }));
 
     // Stream ambassador applications
     unsubscribeStreams.push(db.collection('ambassador_applications').onSnapshot(snap => {
-      state.ambassadorApplications = snap.docs.map(doc => doc.data());
+      state.ambassadorApplications = snap.docs.map(doc => {
+        const d = doc.data();
+        d.id = d.id || doc.id;
+        return d;
+      });
       const viewName = window.location.hash.replace('#', '') || 'dashboard';
       if (viewName === 'admin') renderAdminPane();
     }));
 
     // Stream withdrawals
     unsubscribeStreams.push(db.collection('withdrawals').onSnapshot(snap => {
-      state.withdrawals = snap.docs.map(doc => doc.data());
+      state.withdrawals = snap.docs.map(doc => {
+        const d = doc.data();
+        d.id = d.id || doc.id;
+        return d;
+      });
       const viewName = window.location.hash.replace('#', '') || 'dashboard';
       if (viewName === 'admin') renderAdminPane();
     }));
 
     // Stream user action logs
     unsubscribeStreams.push(db.collection('user_actions').orderBy('timestamp', 'desc').limit(100).onSnapshot(snap => {
-      state.userActions = snap.docs.map(doc => doc.data());
+      state.userActions = snap.docs.map(doc => {
+        const d = doc.data();
+        d.id = d.id || doc.id;
+        return d;
+      });
       const viewName = window.location.hash.replace('#', '') || 'dashboard';
       if (viewName === 'admin') renderAdminPane();
     }));
@@ -1097,6 +1133,25 @@
   function setupAuthListeners() {
     document.getElementById('btn-login-google').onclick = () => loginWithProvider('google');
     document.getElementById('btn-login-github').onclick = () => loginWithProvider('github');
+    
+    const forgotPwdBtn = document.getElementById('btn-forgot-password');
+    if (forgotPwdBtn) {
+      forgotPwdBtn.onclick = async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('login-email').value.trim();
+        if (!email) {
+          showToast("Please enter your email address in the field first.", "warning");
+          return;
+        }
+        try {
+          await auth.sendPasswordResetEmail(email);
+          showToast("Password reset email sent! Please check your inbox.", "success");
+        } catch (err) {
+          console.error("Password reset error:", err.code, err.message);
+          showToast(`${getAuthErrorMessage(err.code)} (${err.message})`, "danger");
+        }
+      };
+    }
     
     let authMode = 'login';
     const shortcutBtn = document.getElementById('btn-onboard-register-shortcut');
@@ -3232,6 +3287,10 @@ Keep the response concise (2-4 sentences) and highly relevant to their profile o
     document.getElementById('profile-card-location').textContent = u.location;
     document.getElementById('profile-card-bio').textContent = u.bio;
     document.getElementById('profile-card-avatar').src = u.avatar;
+    const headerCard = document.getElementById('profile-header-card');
+    if (headerCard) {
+      headerCard.style.backgroundImage = `linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url('${u.cover || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800'}')`;
+    }
 
     // Skills
     const skillsList = document.getElementById('profile-card-skills-container');
@@ -3319,28 +3378,78 @@ Keep the response concise (2-4 sentences) and highly relevant to their profile o
       });
     }
 
-    // Avatar upload shortcut trigger simulation
-    document.getElementById('btn-trigger-avatar-change').onclick = async () => {
-      const urls = [
-        "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150",
-        "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=150",
-        "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150"
-      ];
-      // Swap avatar
-      state.currentUser.avatar = urls[Math.floor(Math.random() * urls.length)];
-      
-      // Update creator avatar inside own projects
-      for (const p of state.projects) {
-        if (p.creator_id === state.currentUser.id) {
-          p.creator_avatar = state.currentUser.avatar;
-          await db.collection('projects').doc(p.id).set(p);
-        }
+    // Real Avatar Upload
+    const avatarInput = document.getElementById('avatar-file-input');
+    document.getElementById('btn-trigger-avatar-change').onclick = () => {
+      avatarInput.click();
+    };
+    
+    avatarInput.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      if (!file.type.startsWith('image/')) {
+        showToast("Please select a valid image file.", "warning");
+        return;
+      }
+      if (file.size > 800 * 1024) { // 800 KB limit for Firestore base64 storage compatibility
+        showToast("Image size must be less than 800 KB.", "warning");
+        return;
       }
 
-      // Update in users database
-      await db.collection('users').doc(state.currentUser.id).set(state.currentUser);
-      showToast("Avatar image updated!", "success");
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        const base64String = event.target.result;
+        state.currentUser.avatar = base64String;
+
+        // Update creator avatar inside own projects
+        for (const p of state.projects) {
+          if (p.creator_id === state.currentUser.id) {
+            p.creator_avatar = state.currentUser.avatar;
+            await db.collection('projects').doc(p.id).set(p);
+          }
+        }
+
+        // Update in users database
+        await db.collection('users').doc(state.currentUser.id).set(state.currentUser);
+        updateGlobalUserData();
+        showToast("Avatar image uploaded successfully!", "success");
+      };
+      reader.readAsDataURL(file);
     };
+
+    // Real Banner Upload
+    const bannerInput = document.getElementById('banner-file-input');
+    const bannerBtn = document.getElementById('btn-trigger-banner-change');
+    if (bannerBtn && bannerInput) {
+      bannerBtn.onclick = () => {
+        bannerInput.click();
+      };
+      
+      bannerInput.onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        if (!file.type.startsWith('image/')) {
+          showToast("Please select a valid image file.", "warning");
+          return;
+        }
+        if (file.size > 800 * 1024) { // 800 KB limit
+          showToast("Image size must be less than 800 KB.", "warning");
+          return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+          const base64String = event.target.result;
+          state.currentUser.cover = base64String;
+
+          // Update in users database
+          await db.collection('users').doc(state.currentUser.id).set(state.currentUser);
+          renderProfileView();
+          showToast("Cover banner uploaded successfully!", "success");
+        };
+        reader.readAsDataURL(file);
+      };
+    }
 
     // Edit profile details modal form
     document.getElementById('btn-trigger-edit-profile').onclick = () => {
@@ -4631,29 +4740,35 @@ Sincerely,
         tbody.innerHTML = '';
         state.users.forEach(u => {
           const planText = u.purchasedPlan ? `<span style="background:rgba(34,197,94,0.15); color:#22c55e; font-weight:700; padding:2px 8px; border-radius:4px;">${u.purchasedPlan.name}</span>` : `<span style="color:var(--text-muted);">None</span>`;
+          const safeId = u.id ? u.id.substring(0, 10) : 'N/A';
+          const safeAvatar = u.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150';
+          const safeName = u.name || 'Anonymous User';
+          
           const tr = document.createElement('tr');
           tr.innerHTML = `
-            <td style="font-family:monospace; font-size:11.5px;">${u.id.substring(0, 10)}...</td>
+            <td style="font-family:monospace; font-size:11.5px;">${safeId}...</td>
             <td>
               <div style="display:flex; align-items:center; gap:8px;">
-                <img src="${u.avatar}" style="width:24px; height:24px; border-radius:50%;" />
-                <span style="font-weight:600;">${u.name}</span>
+                <img src="${safeAvatar}" style="width:24px; height:24px; border-radius:50%;" />
+                <span style="font-weight:600;">${safeName}</span>
               </div>
             </td>
-            <td><span class="id-card-role-tag">${u.role}</span></td>
-            <td><i class="fas fa-fire" style="color:var(--warning);"></i> ${u.points}</td>
+            <td><span class="id-card-role-tag">${u.role || 'student'}</span></td>
+            <td><i class="fas fa-fire" style="color:var(--warning);"></i> ${u.points || 0}</td>
             <td>${planText}</td>
             <td>
-              <button class="secondary-btn" style="padding:2px 8px; font-size:11px;" id="btn-admin-give-pts-${u.id}">+200 pts</button>
+              ${u.id ? `<button class="secondary-btn" style="padding:2px 8px; font-size:11px;" id="btn-admin-give-pts-${u.id}">+200 pts</button>` : ''}
             </td>
           `;
           tbody.appendChild(tr);
           
-          document.getElementById(`btn-admin-give-pts-${u.id}`).onclick = async () => {
-            u.points = (u.points || 0) + 200;
-            await db.collection('users').doc(u.id).set(u);
-            showToast(`Awarded 200 points to ${u.name}!`, "success");
-          };
+          if (u.id) {
+            document.getElementById(`btn-admin-give-pts-${u.id}`).onclick = async () => {
+              u.points = (u.points || 0) + 200;
+              await db.collection('users').doc(u.id).set(u);
+              showToast(`Awarded 200 points to ${safeName}!`, "success");
+            };
+          }
         });
       }
     }

@@ -79,7 +79,7 @@
           <div class="form-group">
             <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
               <label class="form-label" for="login-password">Password</label>
-              <a href="#" style="font-size:12px; font-weight:600; color:var(--primary);" onclick="return false;">Forgot Password?</a>
+              <a href="#" id="btn-forgot-password" style="font-size:12px; font-weight:600; color:var(--primary);">Forgot Password?</a>
             </div>
             <div class="input-icon-wrapper">
               <i class="fas fa-lock input-icon"></i>
@@ -656,25 +656,31 @@
         <!-- SECTION: PROFILE -->
         <section id="view-profile" class="view-section">
           <!-- Profile Banner Card -->
-          <div class="glass-panel profile-header-card">
-            <div class="profile-header-left">
+          <div class="glass-panel profile-header-card" id="profile-header-card" style="position: relative; background-size: cover; background-position: center; min-height: 180px; padding: 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+            <div class="banner-edit-overlay" id="btn-trigger-banner-change" title="Change Cover Banner" style="position: absolute; top: 12px; right: 12px; background: rgba(0,0,0,0.6); color: #fff; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 12px; display: flex; align-items: center; gap: 6px; z-index: 10; font-weight: 600; backdrop-filter: blur(4px);">
+              <i class="fas fa-camera"></i> Change Banner
+            </div>
+            <input type="file" id="banner-file-input" accept="image/*" style="display:none;">
+            
+            <div class="profile-header-left" style="position: relative; z-index: 2; display: flex; align-items: center; gap: 24px;">
               <div class="profile-avatar-wrapper">
                 <img src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150" class="profile-avatar-big" id="profile-card-avatar" alt="Avatar">
                 <div class="avatar-edit-overlay" id="btn-trigger-avatar-change" title="Change Avatar Image">
                   <i class="fas fa-camera"></i>
                 </div>
+                <input type="file" id="avatar-file-input" accept="image/*" style="display:none;">
               </div>
               
-              <div class="profile-main-info">
-                <h1 class="profile-fullname" id="profile-card-name">Student Name</h1>
-                <span class="profile-headline" id="profile-card-headline">Python Developer</span>
-                <div class="profile-location">
-                  <i class="fas fa-map-marker-alt"></i> <span id="profile-card-location">Global Village</span>
+              <div class="profile-main-info" style="text-shadow: 0 2px 8px rgba(0,0,0,0.8);">
+                <h1 class="profile-fullname" id="profile-card-name" style="color: #fff; font-size: 26px; margin: 0;">Student Name</h1>
+                <span class="profile-headline" id="profile-card-headline" style="color: rgba(255,255,255,0.9); font-weight: 500;">Python Developer</span>
+                <div class="profile-location" style="color: rgba(255,255,255,0.7); margin-top: 4px; font-size: 14px;">
+                  <i class="fas fa-map-marker-alt" style="color: var(--primary);"></i> <span id="profile-card-location">Global Village</span>
                 </div>
               </div>
             </div>
             
-            <button class="glow-btn" id="btn-trigger-edit-profile"><i class="fas fa-edit"></i> Edit Profile</button>
+            <button class="glow-btn" id="btn-trigger-edit-profile" style="position: relative; z-index: 2;"><i class="fas fa-edit"></i> Edit Profile</button>
           </div>
           
           <div class="profile-grid">
